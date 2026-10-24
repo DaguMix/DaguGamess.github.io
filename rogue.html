@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<title>Rogue RPG</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none}
+html,body{width:100vw;height:100vh;overflow:hidden;background:#0a0a12;
+  font-family:-apple-system,'Segoe UI',Roboto,sans-serif;color:#fff;
+  display:flex;justify-content:center;align-items:center;
+  background-image:radial-gradient(circle at 50% 0%, rgba(160,107,255,.15), transparent 50%),
+                   radial-gradient(circle at 50% 100%, rgba(255,91,127,.05), transparent 50%)}
+#app{position:relative;width:100%;max-width:900px;height:100vh;display:flex;flex-direction:column;padding:16px;gap:12px;overflow:hidden}
+
+/* --- HUD --- */
+.hud{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:8px}
+.hud-box{flex:1;min-width:80px;background:rgba(0,0,0,.6);backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,.1);
+  border-radius:12px;padding:8px;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.hud-box .label{font-size:10px;color:#9aa0c0;letter-spacing:1px;font-weight:700;margin-bottom:4px}
+.hud-box .value{font-size:16px;font-weight:900;color:#fff}
+
+.hp-bar-bg{width:100%;height:10px;background:rgba(255,255,255,0.1);border-radius:5px;margin-top:4px;overflow:hidden}
+.hp-bar-fill{height:100%;background:#5bff9d;border-radius:5px;transition:width 0.3s ease, background 0.3s}
+.mp-bar-bg{width:100%;height:8px;background:rgba(255,255,255,0.1);border-radius:4px;margin-top:4px;overflow:hidden}
+.mp-bar-fill{height:100%;background:#5be3ff;border-radius:4px;transition:width 0.3s ease}
+
+/* --- Игровое поле --- */
+.board{flex:1;display:grid;grid-template-columns:repeat(6, 1fr);grid-template-rows:repeat(6, 1fr);gap:4px;
+  background:rgba(0,0,0,.4);border-radius:20px;border:1px solid rgba(255,255,255,.1);padding:10px;position:relative}
+.tile{background:#181c22;border:2px solid transparent;border-radius:10px;display:flex;flex-direction:column;
+  justify-content:center;align-items:center;font-size:26px;cursor:pointer;transition:all 0.2s;position:relative}
+.tile:hover{background:#222832}
+.tile.revealed{background:rgba(255,255,255,.03);cursor:default;}
+.tile.active{background:rgba(160,107,255,.15);border-color:#a06bff;box-shadow:0 0 10px rgba(160,107,255,.3);cursor:pointer;animation:pulseActive 1.5s infinite alternate}
+@keyframes pulseActive{from{box-shadow:0 0 5px rgba(160,107,255,.2)}to{box-shadow:0 0 15px rgba(160,107,255,.5)}}
+.tile.active:hover{transform:scale(1.05);background:rgba(160,107,255,.3)}
+.tile.player-tile{background:rgba(91,227,255,.2);border-color:#5be3ff;box-shadow:0 0 15px rgba(91,227,255,.5);z-index:2}
+
+/* Босс на карте */
+.tile.boss-tile { border-color: #ff5b7f; box-shadow: 0 0 15px rgba(255, 91, 127, 0.5); animation: bossPulse 1s infinite alternate; }
+@keyframes bossPulse { from { box-shadow: 0 0 10px rgba(255, 91, 127, 0.3); } to { box-shadow: 0 0 25px rgba(255, 91, 127, 0.8); } }
+
+/* --- Модалки --- */
+.modal{position:fixed;inset:0;background:rgba(10,10,20,.95);backdrop-filter:blur(10px);display:none;
+  justify-content:center;align-items:center;z-index:100;padding:20px}
+.modal.show{display:flex;animation:fadeIn 0.3s ease}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+
+/* --- Боевая арена --- */
+.battle-arena{width:100%;max-width:700px;display:flex;flex-direction:column;gap:16px}
+.battle-top{display:flex;justify-content:space-between;align-items:flex-end;height:220px;padding:0 10px}
+.character{display:flex;flex-direction:column;align-items:center;transition:transform 0.2s;font-size:70px;position:relative}
+.character .name{font-size:16px;font-weight:800;margin-top:8px;color:#fff;text-shadow:0 2px 4px #000}
+.hp-text{font-size:14px;font-weight:900;color:#fff;margin-top:6px;text-shadow:0 2px 4px #000}
+
+/* Исправление зеркального текста */
+.character.enemy{transform:scaleX(-1);}
+.character.enemy .name,
+.character.enemy .hp-text,
+.character.enemy .battle-hp-bar {
+  transform: scaleX(-1);
+}
+
+/* Полоска ХП в бою */
+.battle-hp-bar{width:140px;height:14px;background:#000;border-radius:7px;margin-top:4px;border:2px solid rgba(255,255,255,0.2);overflow:hidden;display:flex;justify-content:flex-end;}
+.battle-hp-fill{height:100%;background:#5bff9d;transition:width 0.3s}
+.battle-hp-fill.enemy-hp{background:#ff5b7f}
+
+/* Анимации боя */
+@keyframes shake { 0% { transform: translate(1px, 1px) rotate(0deg); } 10% { transform: translate(-1px, -2px) rotate(-1deg); } 20% { transform: translate(-3px, 0px) rotate(1deg); } 30% { transform: translate(3px, 2px) rotate(0deg); } 40% { transform: translate(1px, -1px) rotate(1deg); } 50% { transform: translate(-1px, 2px) rotate(-1deg); } 60% { transform: translate(-3px, 1px) rotate(0deg); } 70% { transform: translate(3px, 1px) rotate(-1deg); } 80% { transform: translate(-1px, -1px) rotate(1deg); } 90% { transform: translate(1px, 2px) rotate(0deg); } 100% { transform: translate(1px, -2px) rotate(-1deg); } }
+.shake { animation: shake 0.4s; }
+@keyframes hitFlash { 0%, 100% { filter: brightness(1); } 50% { filter: brightness(2) drop-shadow(0 0 20px red); } }
+.hit { animation: hitFlash 0.3s; }
+
+.battle-log{background:rgba(0,0,0,0.6);border:1px solid rgba(255,255,255,0.1);border-radius:12px;
+  padding:12px;font-size:13px;height:90px;overflow-y:auto;text-align:left;color:#9aa0c0;line-height:1.5}
+.battle-log b{color:#fff}
+
+.battle-controls{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.battle-btn{padding:14px;border:none;border-radius:12px;font-size:15px;font-weight:900;
+  font-family:inherit;cursor:pointer;transition:0.2s;text-transform:uppercase}
+.battle-btn.attack{background:linear-gradient(135deg,#ff5b7f,#ff9a5b);color:#fff}
+.battle-btn.skill{background:linear-gradient(135deg,#5be3ff,#a06bff);color:#001}
+.battle-btn.heal{background:linear-gradient(135deg,#5bff9d,#5be3ff);color:#001}
+.battle-btn.flee{background:rgba(255,255,255,.1);color:#fff}
+.battle-btn:hover:not(:disabled){transform:translateY(-2px);filter:brightness(1.1)}
+.battle-btn:disabled{opacity:0.4;cursor:not-allowed}
+
+/* --- Магазин --- */
+.shop-container{width:100%;max-width:500px;background:linear-gradient(145deg,#1a1a35,#0f0f22);
+  border:2px solid #ffd86b;border-radius:20px;padding:24px;display:flex;flex-direction:column;gap:16px}
+.shop-container h2{text-align:center;color:#ffd86b;font-size:22px;text-transform:uppercase}
+.shop-gold{text-align:center;font-size:16px;margin-bottom:10px;color:#ffd86b;font-weight:800}
+.shop-items{display:flex;flex-direction:column;gap:10px}
+.shop-item{display:flex;align-items:center;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);
+  border-radius:12px;padding:12px;cursor:pointer;transition:0.2s;color:#fff;text-align:left}
+.shop-item:hover:not(:disabled){background:rgba(255,255,255,0.1);border-color:#ffd86b}
+.shop-item:disabled{opacity:0.4;cursor:not-allowed}
+.shop-icon{font-size:28px;margin-right:16px}
+.shop-info{flex:1}
+.shop-name{font-size:15px;font-weight:800}
+.shop-desc{font-size:11px;color:#9aa0c0;margin-top:2px}
+.shop-cost{font-size:15px;font-weight:900;color:#ffd86b}
+
+/* Всплывающий урон */
+.damage-text{position:absolute;font-size:26px;font-weight:900;pointer-events:none;
+  text-shadow:0 2px 10px #000;animation:floatDmg 0.8s ease-out forwards;z-index:10;text-align:center;}
+@keyframes floatDmg{0%{transform:translateY(0) scale(0.5);opacity:0}20%{transform:translateY(-20px) scale(1.2);opacity:1}100%{transform:translateY(-60px) scale(1);opacity:0}}
+
+/* Стартовый экран */
+#startScreen{position:absolute;inset:0;background:#0f111a;z-index:200;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px}
+#startScreen h1{font-size:36px;font-weight:900;color:#fff;margin-bottom:30px;text-transform:uppercase;letter-spacing:2px}
+.class-cards{display:flex;gap:15px;flex-wrap:wrap;justify-content:center}
+.class-card{width:140px;background:rgba(255,255,255,0.05);border:2px solid rgba(255,255,255,0.1);border-radius:16px;
+  padding:20px 10px;text-align:center;cursor:pointer;transition:0.2s}
+.class-card:hover{transform:translateY(-5px);background:rgba(255,255,255,0.1)}
+.class-card.warrior:hover{border-color:#ff5b7f;box-shadow:0 0 20px rgba(255,91,127,0.4)}
+.class-card.mage:hover{border-color:#5be3ff;box-shadow:0 0 20px rgba(91,227,255,0.4)}
+.class-card.rogue:hover{border-color:#5bff9d;box-shadow:0 0 20px rgba(91,255,157,0.4)}
+.class-icon{font-size:40px;margin-bottom:10px}
+.class-name{font-size:16px;font-weight:800;margin-bottom:5px}
+.class-stats{font-size:11px;color:#9aa0c0}
+</style>
+</head>
+<body>
+
+<div id="app">
+  <div class="hud">
+    <div class="hud-box">
+      <div class="label">УРОВЕНЬ</div>
+      <div class="value" id="lvlText">1</div>
+    </div>
+    <div class="hud-box" style="flex:2;">
+      <div class="label">ЗДОРОВЬЕ (HP)</div>
+      <div class="value" id="hpText">50/50</div>
+      <div class="hp-bar-bg"><div class="hp-bar-fill" id="hudHpFill" style="width:100%"></div></div>
+      <div class="mp-bar-bg"><div class="mp-bar-fill" id="hudMpFill" style="width:100%"></div></div>
+    </div>
+    <div class="hud-box">
+      <div class="label">ЗОЛОТО</div>
+      <div class="value" id="goldText" style="color:#ffd86b">0</div>
+    </div>
+    <div class="hud-box">
+      <div class="label">АТАКА</div>
+      <div class="value" id="atkText" style="color:#ff5b7f">5</div>
+    </div>
+  </div>
+
+  <div class="board" id="board"></div>
+</div>
+
+<!-- Стартовый экран выбора класса -->
+<div id="startScreen">
+  <h1>Выбери класс</h1>
+  <div class="class-cards">
+    <div class="class-card warrior" onclick="startGame('warrior')">
+      <div class="class-icon">🛡️</div>
+      <div class="class-name">Воин</div>
+      <div class="class-stats">70 HP<br>Атака 7<br>Скилл: Удар щитом</div>
+    </div>
+    <div class="class-card mage" onclick="startGame('mage')">
+      <div class="class-icon">🧙‍♂️</div>
+      <div class="class-name">Маг</div>
+      <div class="class-stats">45 HP<br>Атака 4<br>Скилл: Огн. шар</div>
+    </div>
+    <div class="class-card rogue" onclick="startGame('rogue')">
+      <div class="class-icon">🏹</div>
+      <div class="class-name">Разбойник</div>
+      <div class="class-stats">50 HP<br>Атака 6<br>Скилл: Отравление</div>
+    </div>
+  </div>
+</div>
+
+<!-- Модалка боя -->
+<div class="modal" id="battleModal">
+  <div class="battle-arena">
+    <div class="battle-top">
+      <div class="character" id="playerChar">
+        🧙
+        <div class="name">Игрок</div>
+        <div class="hp-text" id="battlePlayerHpText">50/50</div>
+        <div class="battle-hp-bar" style="border-color:rgba(91,255,157,0.5);">
+          <div class="battle-hp-fill" id="battlePlayerHpFill" style="width:100%"></div>
+        </div>
+      </div>
+
+      <div style="font-size:28px; font-weight:900; color:#555; align-self:center; margin-bottom:30px;">VS</div>
+      
+      <div class="character enemy" id="enemyChar">
+        👹
+        <div class="name" id="enemyName">Гоблин</div>
+        <div class="hp-text" id="battleEnemyHpText">20/20</div>
+        <div class="battle-hp-bar">
+          <div class="battle-hp-fill enemy-hp" id="enemyHpFill" style="width:100%"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="battle-log" id="battleLog"></div>
+
+    <div class="battle-controls">
+      <button class="battle-btn attack" id="btnAttack" onclick="playerAttack()">⚔️ Атака</button>
+      <button class="battle-btn skill" id="btnSkill" onclick="playerSkill()">🔥 Скилл (30 MP)</button>
+      <button class="battle-btn heal" id="btnHeal" onclick="playerHeal()">🧪 Зелье (3)</button>
+      <button class="battle-btn flee" id="btnFlee" onclick="playerFlee()">🏃 Побег</button>
+    </div>
+  </div>
+</div>
+
+<!-- Модалка магазина -->
+<div class="modal" id="shopModal">
+  <div class="shop-container">
+    <h2>🏪 Лавка</h2>
+    <div class="shop-gold">Золото: <span id="shopGoldText">0</span> 🪙</div>
+    <div class="shop-items" id="shopItems"></div>
+    <button class="battle-btn flee" onclick="closeShop()" style="margin-top:10px;">Уйти</button>
+  </div>
+</div>
+
+<script>
+const BOARD_SIZE = 6;
+const TILES_TOTAL = BOARD_SIZE * BOARD_SIZE;
+
+// ОБНОВЛЕННЫЙ СПИСОК ВРАГОВ (Изменил эмодзи слизи на 🦠)
+const ENEMIES = [
+  { name: 'Слизь', emoji: '🦠', color: '#5be3ff', hpMult: 1.2, atkMult: 0.5, goldMult: 0.8, weight: 35 },
+  { name: 'Мышь', emoji: '🦇', color: '#a06bff', hpMult: 0.6, atkMult: 0.8, goldMult: 0.9, weight: 25 },
+  { name: 'Гоблин', emoji: '👺', color: '#5bff9d', hpMult: 1.0, atkMult: 1.0, goldMult: 1.0, weight: 20 },
+  { name: 'Скелет', emoji: '💀', color: '#ffffff', hpMult: 0.8, atkMult: 1.2, goldMult: 1.1, weight: 15 },
+  { name: 'Паук', emoji: '🕷️', color: '#ff5b7f', hpMult: 0.9, atkMult: 1.1, goldMult: 1.1, weight: 10 },
+  { name: 'Зомби', emoji: '🧟', color: '#4b8b4b', hpMult: 1.5, atkMult: 0.8, goldMult: 1.2, weight: 8 },
+  { name: 'Волк', emoji: '🐺', color: '#9aa0c0', hpMult: 0.7, atkMult: 1.5, goldMult: 1.2, weight: 6 },
+  { name: 'Призрак', emoji: '👻', color: '#e0e0e0', hpMult: 0.8, atkMult: 1.2, goldMult: 1.5, special: 'dodge', weight: 4 },
+  { name: 'Вампир', emoji: '🧛', color: '#ff0000', hpMult: 1.1, atkMult: 1.2, goldMult: 1.5, special: 'steal', weight: 4 },
+  // Боссы
+  { name: 'Орк', emoji: '👹', color: '#ff5b7f', hpMult: 2.0, atkMult: 1.5, goldMult: 2.5, isBoss: true },
+  { name: 'Голем', emoji: '🗿', color: '#8b929e', hpMult: 2.5, atkMult: 1.2, goldMult: 3.0, isBoss: true },
+  { name: 'Дракон', emoji: '🐉', color: '#ffd86b', hpMult: 3.0, atkMult: 2.0, goldMult: 5.0, isBoss: true }
+];
+
+let state = {};
+let player = {};
+let currentEnemy = null;
+let currentShopIndex = -1;
+let audioCtx = null;
+
+// --- ЗВУКИ ---
+function initAudio() { if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+function playTone(freq, type='sine', dur=0.1, vol=0.1) {
+  if (!audioCtx) return;
+  const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
+  osc.type = type; osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+  gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
+  osc.connect(gain); gain.connect(audioCtx.destination);
+  osc.start(); osc.stop(audioCtx.currentTime + dur);
+}
+
+// --- СТАРТ ---
+function startGame(classType) {
+  document.getElementById('startScreen').style.display = 'none';
+  
+  let baseHp = 50, baseAtk = 5, baseMp = 50;
+  if (classType === 'warrior') { baseHp = 70; baseAtk = 7; baseMp = 30; }
+  if (classType === 'mage') { baseHp = 45; baseAtk = 4; baseMp = 70; }
+  if (classType === 'rogue') { baseHp = 50; baseAtk = 6; baseMp = 40; }
+
+  state = { level: 1, position: 0, grid: [], isBattle: false, battleLock: false, classType: classType };
+  player = { hp: baseHp, maxHp: baseHp, mp: baseMp, maxMp: baseMp, atk: baseAtk, gold: 0, potions: 3, armor: 0 };
+
+  generateLevel();
+}
+
+// --- ВЗВЕШЕННЫЙ РАНДОМ ДЛЯ ВРАГОВ ---
+function getRandomEnemy(forceBoss = false) {
+  let pool = ENEMIES.filter(e => !e.isBoss);
+  
+  if (forceBoss && state.level % 5 === 0 && Math.random() < 0.3) {
+      const bosses = ENEMIES.filter(e => e.isBoss);
+      return bosses[Math.floor(Math.random() * bosses.length)];
+  }
+
+  const totalWeight = pool.reduce((sum, e) => sum + e.weight, 0);
+  let random = Math.random() * totalWeight;
+
+  for (const enemy of pool) {
+    random -= enemy.weight;
+    if (random <= 0) return enemy;
+  }
+  return pool[0]; 
+}
+
+// --- ГЕНЕРАЦИЯ ---
+function generateLevel() {
+  state.position = 0;
+  state.grid = [];
+  state.isBattle = false;
+  state.battleLock = false;
+  
+  for (let i = 0; i < TILES_TOTAL; i++) state.grid.push({ type: 'empty', revealed: false, enemy: null });
+
+  // Враги
+  for (let i = 1; i < TILES_TOTAL; i++) {
+    if (Math.random() < 0.30) {
+      let base = getRandomEnemy(true);
+      
+      const hp = Math.floor((10 + state.level * 4) * base.hpMult);
+      const atk = Math.floor((2 + state.level * 1.5) * base.atkMult);
+      state.grid[i] = { type: 'enemy', revealed: false, enemy: { ...base, hp, maxHp: hp, atk } };
+    }
+  }
+
+  // Сокровища (20%)
+  for (let i = 1; i < TILES_TOTAL; i++) {
+    if (state.grid[i].type === 'empty' && Math.random() < 0.20) state.grid[i] = { type: 'gold', revealed: false, amount: 5 + state.level * 2 };
+  }
+
+  // Зелья (10%)
+  for (let i = 1; i < TILES_TOTAL; i++) {
+    if (state.grid[i].type === 'empty' && Math.random() < 0.10) state.grid[i] = { type: 'potion', revealed: false };
+  }
+
+  // Лестница
+  state.grid[TILES_TOTAL - 1] = { type: 'stairs', revealed: false };
+
+  // Магазин
+  let shopPlaced = false;
+  while (!shopPlaced) {
+    let idx = 10 + Math.floor(Math.random() * (TILES_TOTAL - 12));
+    if (state.grid[idx].type === 'empty') {
+      state.grid[idx] = { type: 'shop', revealed: true };
+      shopPlaced = true;
+    }
+  }
+
+  renderBoard(); updateUI();
+}
+
+// --- ОТРИСОВКА ПОЛЯ ---
+function renderBoard() {
+  const board = document.getElementById('board');
+  board.innerHTML = '';
+  
+  for (let i = 0; i < TILES_TOTAL; i++) {
+    const cell = state.grid[i];
+    const div = document.createElement('div');
+    div.className = 'tile';
+    
+    if (i === state.position) {
+      div.classList.add('player-tile');
+      div.innerHTML = `🧙‍♂️`;
+    } else if (cell.revealed) {
+      div.classList.add('revealed');
+      if (cell.type === 'empty') div.innerHTML = `·`;
+      if (cell.type === 'enemy') {
+        // ДОБАВЛЯЕМ ИМЯ ВРАГА ПРЯМО НА КАРТУ
+        let nameTag = `<div style="font-size:9px; color:${cell.enemy.color}; margin-top:2px; font-weight:800;">${cell.enemy.name}</div>`;
+        div.innerHTML = `${cell.enemy.emoji}${nameTag}`;
+        div.style.borderColor = cell.enemy.color;
+        if (cell.enemy.isBoss) div.classList.add('boss-tile');
+      }
+      if (cell.type === 'gold') div.innerHTML = `💰`;
+      if (cell.type === 'potion') div.innerHTML = `🧪`;
+      if (cell.type === 'stairs') div.innerHTML = `🪜`;
+      if (cell.type === 'shop') div.innerHTML = `🏪`;
+      
+      if (isAdjacent(i, state.position)) div.classList.add('active');
+      div.onclick = () => moveTo(i);
+    } else {
+      if (isAdjacent(i, state.position)) div.classList.add('active');
+      div.innerHTML = `❓`;
+      div.onclick = () => moveTo(i);
+    }
+    board.appendChild(div);
+  }
+}
+
+function isAdjacent(a, b) {
+  const ax = a % BOARD_SIZE, ay = Math.floor(a / BOARD_SIZE);
+  const bx = b % BOARD_SIZE, by = Math.floor(b / BOARD_SIZE);
+  return Math.abs(ax - bx) + Math.abs(ay - by) === 1;
+}
+
+// --- ПЕРЕМЕЩЕНИЕ ---
+function moveTo(index) {
+  if (!isAdjacent(index, state.position) || state.isBattle || state.battleLock) return;
+  initAudio(); playTone(400, 'sine', 0.05, 0.05);
+
+  state.position = index;
+  const cell = state.grid[index];
+  
+  if (!cell.revealed) {
+    cell.revealed = true;
+    if (cell.type === 'enemy') { startBattle(cell.enemy, index); return; }
+    if (cell.type === 'gold') {
+      player.gold += cell.amount; playTone(800, 'triangle', 0.2); cell.type = 'empty';
+      showFloat(`+${cell.amount} 🪙`, index, '#ffd86b');
+    }
+    if (cell.type === 'potion') {
+      player.potions++; playTone(600, 'sine', 0.2); cell.type = 'empty';
+      showFloat(`+1 🧪`, index, '#5be3ff');
+    }
+    if (cell.type === 'shop') openShop(index);
+    if (cell.type === 'stairs') {
+      playTone(900, 'square', 0.3);
+      showFloat(`↓ Уровень ${state.level + 1}`, index, '#a06bff');
+      state.battleLock = true;
+      setTimeout(() => {
+        state.level++;
+        player.hp = Math.min(player.maxHp, player.hp + 20);
+        player.mp = player.maxMp;
+        player.maxHp += 10; player.atk += 2;
+        generateLevel();
+      }, 1000);
+    }
+  } else if (cell.type === 'shop') {
+    openShop(index);
+  }
+  renderBoard(); updateUI();
+}
+
+// --- МАГАЗИН ---
+function openShop(index) {
+  currentShopIndex = index;
+  state.battleLock = true;
+  document.getElementById('shopGoldText').textContent = player.gold;
+  renderShopItems();
+  document.getElementById('shopModal').classList.add('show');
+  playTone(600, 'sine', 0.1);
+}
+
+function renderShopItems() {
+  const container = document.getElementById('shopItems');
+  container.innerHTML = '';
+  const items = [
+    { id: 'potion', name: 'Зелье', desc: 'Восстанавливает 40% HP', cost: 15, icon: '🧪' },
+    { id: 'atk', name: 'Меч', desc: '+2 к атаке', cost: 35, icon: '⚔️' },
+    { id: 'hp', name: 'Броня', desc: '+10 макс. HP, -1 урон', cost: 40, icon: '🛡️' },
+    { id: 'mp', name: 'Кристалл', desc: '+20 к макс. MP', cost: 20, icon: '💎' }
+  ];
+
+  items.forEach(item => {
+    const btn = document.createElement('button');
+    btn.className = 'shop-item';
+    btn.innerHTML = `<div class="shop-icon">${item.icon}</div><div class="shop-info"><div class="shop-name">${item.name}</div><div class="shop-desc">${item.desc}</div></div><div class="shop-cost">${item.cost} 🪙</div>`;
+    if (player.gold < item.cost) btn.disabled = true;
+    btn.onclick = () => buyItem(item);
+    container.appendChild(btn);
+  });
+}
+
+function buyItem(item) {
+  if (player.gold < item.cost) return;
+  player.gold -= item.cost;
+  if (item.id === 'potion') player.potions++;
+  if (item.id === 'atk') player.atk += 2;
+  if (item.id === 'hp') { player.maxHp += 10; player.hp += 10; player.armor += 1; }
+  if (item.id === 'mp') { player.maxMp += 20; player.mp += 20; }
+  playTone(800, 'sine', 0.1);
+  document.getElementById('shopGoldText').textContent = player.gold;
+  renderShopItems(); updateUI();
+}
+
+function closeShop() {
+  document.getElementById('shopModal').classList.remove('show');
+  state.battleLock = false;
+  renderBoard();
+}
+
+// --- БОЙ ---
+function startBattle(enemy, index) {
+  state.isBattle = true;
+  currentEnemy = { ...enemy, index };
+  
+  playTone(150, 'sawtooth', 0.3, 0.1);
+  document.getElementById('battleModal').classList.add('show');
+  
+  document.getElementById('enemyChar').innerHTML = `
+    ${currentEnemy.emoji}
+    <div class="name" id="enemyName">${currentEnemy.name}</div>
+    <div class="hp-text" id="battleEnemyHpText">${currentEnemy.hp}/${currentEnemy.maxHp}</div>
+    <div class="battle-hp-bar"><div class="battle-hp-fill enemy-hp" id="enemyHpFill" style="width:100%"></div></div>
+  `;
+  
+  document.getElementById('battleLog').innerHTML = `<b>${currentEnemy.name}</b> преграждает путь!`;
+  updateBattleButtons(); updateBattlePlayerHp(); updateEnemyHp();
+}
+
+function updateBattlePlayerHp() {
+  const pct = Math.max(0, (player.hp / player.maxHp) * 100);
+  document.getElementById('battlePlayerHpText').textContent = `${Math.max(0, Math.ceil(player.hp))}/${player.maxHp}`;
+  const fill = document.getElementById('battlePlayerHpFill');
+  fill.style.width = pct + '%';
+  fill.style.background = pct > 50 ? '#5bff9d' : pct > 25 ? '#ffd86b' : '#ff5b7f';
+}
+
+function updateEnemyHp() {
+  const pct = Math.max(0, (currentEnemy.hp / currentEnemy.maxHp) * 100);
+  document.getElementById('battleEnemyHpText').textContent = `${Math.max(0, Math.ceil(currentEnemy.hp))}/${currentEnemy.maxHp}`;
+  const el = document.getElementById('enemyHpFill');
+  if (el) el.style.width = pct + '%';
+}
+
+function updateBattleButtons() {
+  document.getElementById('btnHeal').textContent = `🧪 Зелье (${player.potions})`;
+  document.getElementById('btnHeal').disabled = player.potions <= 0 || player.hp >= player.maxHp;
+  document.getElementById('btnSkill').disabled = player.mp < 30;
+}
+
+function playerAttack() {
+  if (!currentEnemy || state.battleLock) return;
+  state.battleLock = true;
+  initAudio();
+  
+  if (currentEnemy.special === 'dodge' && Math.random() < 0.2) {
+    playTone(500, 'sine', 0.1);
+    showDamage(0, document.getElementById('enemyChar'), '#fff', 'ПРОМАХ!');
+    logBattle(`Ты атаковал, но <b>${currentEnemy.name}</b> уклонился!`);
+    setTimeout(enemyTurn, 600);
+    return;
+  }
+
+  const isCrit = Math.random() < 0.2;
+  const dmg = Math.floor((player.atk + Math.random() * 2) * (isCrit ? 2 : 1));
+  currentEnemy.hp -= dmg;
+  
+  playTone(isCrit ? 400 : 300, 'square', 0.1);
+  document.getElementById('playerChar').style.transform = 'translateX(50px)';
+  setTimeout(() => document.getElementById('playerChar').style.transform = 'translateX(0)', 100);
+  
+  const eChar = document.getElementById('enemyChar');
+  eChar.classList.add('hit');
+  showDamage(dmg, eChar, isCrit ? '#ffd86b' : '#fff', isCrit ? 'КРИТ!' : '');
+  setTimeout(() => eChar.classList.remove('hit'), 300);
+  
+  logBattle(`Ты нанес <b>${dmg}</b> урона. ${isCrit ? '(Крит!)' : ''}`);
+  updateEnemyHp();
+
+  if (currentEnemy.hp <= 0) {
+    setTimeout(() => endBattle(true), 600);
+  } else {
+    setTimeout(enemyTurn, 600);
+  }
+}
+
+function playerSkill() {
+  if (!currentEnemy || state.battleLock || player.mp < 30) return;
+  state.battleLock = true;
+  player.mp -= 30;
+  initAudio();
+  
+  if (currentEnemy.special === 'dodge' && Math.random() < 0.2) {
+    playTone(500, 'sine', 0.1);
+    showDamage(0, document.getElementById('enemyChar'), '#fff', 'ПРОМАХ!');
+    logBattle(`Скилл пролетел мимо! <b>${currentEnemy.name}</b> уклонился!`);
+    setTimeout(enemyTurn, 600);
+    return;
+  }
+
+  let dmg = 0, text = "";
+  if (state.classType === 'warrior') { dmg = player.atk * 2 + 5; text = "Удар щитом!"; }
+  if (state.classType === 'mage') { dmg = player.atk * 3 + 10; text = "Огненный шар!"; }
+  if (state.classType === 'rogue') { dmg = player.atk * 2 + 8; text = "Отравление!"; }
+
+  currentEnemy.hp -= dmg;
+  
+  playTone(600, 'sawtooth', 0.2);
+  const eChar = document.getElementById('enemyChar');
+  eChar.classList.add('hit');
+  showDamage(dmg, eChar, '#5be3ff', text);
+  setTimeout(() => eChar.classList.remove('hit'), 300);
+  
+  logBattle(`Ты использовал <b>${text}</b> и нанес <b>${dmg}</b> урона.`);
+  updateEnemyHp(); updateUI();
+
+  if (currentEnemy.hp <= 0) {
+    setTimeout(() => endBattle(true), 600);
+  } else {
+    setTimeout(enemyTurn, 600);
+  }
+}
+
+function playerHeal() {
+  if (player.potions <= 0 || player.hp >= player.maxHp || state.battleLock) return;
+  state.battleLock = true;
+  player.potions--;
+  
+  const heal = Math.floor(player.maxHp * 0.4);
+  player.hp = Math.min(player.maxHp, player.hp + heal);
+  
+  playTone(700, 'sine', 0.3);
+  logBattle(`Ты выпил зелье и восстановил <b>${heal} HP</b>.`);
+  updateUI(); updateBattlePlayerHp(); updateBattleButtons();
+  
+  setTimeout(enemyTurn, 600);
+}
+
+function playerFlee() {
+  if (state.battleLock) return;
+  state.battleLock = true;
+  
+  if (currentEnemy.isBoss) {
+    logBattle(`<b>Боссы не дают сбежать!</b> Придется драться!`);
+    setTimeout(() => { state.battleLock = false; }, 800);
+    return;
+  }
+
+  const lostGold = Math.floor(player.gold * 0.2);
+  player.gold -= lostGold;
+  logBattle(`Ты сбежал, потеряв <b>${lostGold} 🪙</b>.`);
+  
+  setTimeout(() => {
+    document.getElementById('battleModal').classList.remove('show');
+    state.isBattle = false;
+    state.battleLock = false;
+    currentEnemy = null;
+    updateUI(); renderBoard();
+  }, 800);
+}
+
+function enemyTurn() {
+  let dmg = Math.max(1, currentEnemy.atk + Math.floor(Math.random() * 2) - player.armor);
+  player.hp -= dmg;
+  
+  if (currentEnemy.special === 'steal') {
+    const heal = Math.floor(dmg / 2);
+    currentEnemy.hp = Math.min(currentEnemy.maxHp, currentEnemy.hp + heal);
+    updateEnemyHp();
+    logBattle(`<b>${currentEnemy.name}</b> украл <b>${heal} HP</b>!`);
+  }
+
+  playTone(200, 'sawtooth', 0.1);
+  const pChar = document.getElementById('playerChar');
+  pChar.classList.add('shake');
+  document.getElementById('app').classList.add('shake');
+  showDamage(dmg, pChar, '#ff5b7f');
+  
+  setTimeout(() => {
+    pChar.classList.remove('shake');
+    document.getElementById('app').classList.remove('shake');
+  }, 400);
+  
+  logBattle(`<b>${currentEnemy.name}</b> нанес тебе <b>${dmg}</b> урона.`);
+  updateUI(); updateBattlePlayerHp();
+  
+  if (player.hp <= 0) {
+    player.hp = 0; updateUI(); updateBattlePlayerHp();
+    setTimeout(() => endBattle(false), 800);
+    return;
+  }
+  
+  state.battleLock = false;
+  updateBattleButtons();
+}
+
+function endBattle(win) {
+  document.getElementById('battleModal').classList.remove('show');
+  const cell = state.grid[currentEnemy.index];
+  
+  if (win) {
+    playTone(800, 'triangle', 0.1); setTimeout(() => playTone(1000, 'triangle', 0.2), 100);
+    const reward = Math.floor((10 + state.level * 5) * currentEnemy.goldMult);
+    player.gold += reward;
+    showFloat(`+${reward} 🪙`, currentEnemy.index, '#ffd86b');
+    cell.type = 'empty'; cell.enemy = null;
+    
+    if (Math.random() < 0.3) { player.potions++; setTimeout(() => showFloat(`+1 🧪`, currentEnemy.index, '#5be3ff'), 300); }
+    if (Math.random() < 0.2) { player.atk++; setTimeout(() => showFloat(`+1 АТК`, currentEnemy.index, '#ff5b7f'), 300); }
+  } else {
+    playTone(100, 'sawtooth', 0.8, 0.2);
+    setTimeout(() => {
+      alert(`Ты погиб на уровне ${state.level}. Набрано золота: ${player.gold}`);
+      location.reload();
+    }, 500);
+    return;
+  }
+  
+  currentEnemy = null;
+  state.isBattle = false;
+  state.battleLock = false;
+  renderBoard(); updateUI();
+}
+
+// --- ВСПОМОГАТЕЛЬНЫЕ ---
+function logBattle(msg) {
+  const log = document.getElementById('battleLog');
+  log.innerHTML += `<br>> ${msg}`;
+  log.scrollTop = log.scrollHeight;
+}
+
+function updateUI() {
+  document.getElementById('lvlText').textContent = state.level;
+  document.getElementById('hpText').textContent = `${player.hp}/${player.maxHp}`;
+  document.getElementById('goldText').textContent = player.gold;
+  document.getElementById('atkText').textContent = player.atk;
+  
+  const pctHp = Math.max(0, (player.hp / player.maxHp) * 100);
+  const fillHp = document.getElementById('hudHpFill');
+  fillHp.style.width = pctHp + '%';
+  fillHp.style.background = pctHp > 50 ? '#5bff9d' : pctHp > 25 ? '#ffd86b' : '#ff5b7f';
+
+  const pctMp = Math.max(0, (player.mp / player.maxMp) * 100);
+  document.getElementById('hudMpFill').style.width = pctMp + '%';
+}
+
+function showFloat(text, index, color) {
+  const board = document.getElementById('board');
+  const rect = board.getBoundingClientRect();
+  const cx = (index % BOARD_SIZE) * (rect.width / BOARD_SIZE) + (rect.width / BOARD_SIZE / 2);
+  const cy = Math.floor(index / BOARD_SIZE) * (rect.height / BOARD_SIZE) + (rect.height / BOARD_SIZE / 2);
+  
+  const el = document.createElement('div');
+  el.className = 'damage-text'; el.textContent = text;
+  el.style.left = cx + 'px'; el.style.top = cy + 'px'; el.style.color = color;
+  board.appendChild(el);
+  setTimeout(() => el.remove(), 800);
+}
+
+function showDamage(amount, targetEl, color, extraText="") {
+  const el = document.createElement('div');
+  el.className = 'damage-text'; 
+  el.innerHTML = amount === 0 ? `<span style="color:${color}">${extraText}</span>` : `${extraText}<br>-${amount}`;
+  el.style.color = color;
+  el.style.left = '50%'; el.style.top = '20%';
+  el.style.textAlign = 'center';
+  targetEl.appendChild(el);
+  setTimeout(() => el.remove(), 800);
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<title>Geography Quiz</title>
+<script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none}
+html,body{width:100vw;height:100vh;overflow:hidden;background:#2a2a2a;
+  font-family:-apple-system,'Segoe UI',Roboto,sans-serif;color:#fff;display:flex;flex-direction:column}
+
+#app{position:relative;width:100%;height:100%;display:flex;flex-direction:column}
+
+/* Верхняя панель */
+.top-bar{position:absolute;top:20px;right:20px;z-index:10;display:none;gap:10px;}
+.stat-box{background:rgba(0,0,0,0.7);border:1px solid #444;border-radius:10px;padding:10px 16px;
+  text-align:center;backdrop-filter:blur(5px)}
+.stat-box .lbl{font-size:10px;color:#9aa0c0;font-weight:700;letter-spacing:1px}
+.stat-box .val{font-size:20px;font-weight:900;color:#5be3ff}
+
+/* Игровое поле */
+#map-container{flex:1;display:flex;justify-content:center;align-items:center;overflow:hidden;padding:20px;padding-bottom:80px;position:relative}
+#map-container svg{max-width:100%;max-height:100%;width:auto;height:auto;display:block}
+#map-container svg path{fill:#555;stroke:#222;stroke-width:1;cursor:pointer;transition:fill 0.2s;}
+
+/* Наведение (только на серые страны) */
+#map-container svg path:not(.solved):not(.wrong):not(.missed):hover{fill:#6a6a6a;}
+
+/* Угаданные (Зеленые) */
+#map-container svg path.solved{fill:#4bff4b !important; pointer-events:none; cursor:default;}
+
+/* Ошибочный клик (Красные) */
+#map-container svg path.wrong{fill:#ff5b7f !important; pointer-events:none; cursor:default;}
+
+/* Пропущенные после 3 ошибок (Желтые/Золотые) */
+#map-container svg path.missed{fill:#ffd86b !important; pointer-events:none; cursor:default;}
+
+/* Нижняя панель */
+.bottom-bar{position:absolute;bottom:0;left:0;right:0;height:80px;background:#222;
+  display:none;justify-content:center;align-items:center;gap:20px;border-top:1px solid #111;z-index:10}
+.question-text{font-size:24px;font-weight:400;color:#ccc;text-align:center;}
+.question-text span{color:#5be3ff;font-weight:700}
+
+#btnNext{display:none; padding:12px 24px; border-radius:10px; background:#5be3ff; color:#000; 
+  font-weight:900; font-size:18px; border:none; cursor:pointer; transition:0.2s;}
+#btnNext:hover{transform:scale(1.05); filter:brightness(1.1);}
+
+/* Экран загрузки */
+#loader{position:absolute;inset:0;background:#2a2a2a;display:flex;justify-content:center;align-items:center;z-index:200;font-size:20px;font-weight:900;color:#9aa0c0;flex-direction:column;gap:20px;padding:20px;text-align:center}
+.spinner{width:40px;height:40px;border:4px solid #444;border-top-color:#5be3ff;border-radius:50%;animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* Оверлеи */
+.overlay{position:absolute;inset:0;background:rgba(20,20,20,0.95);display:none;flex-direction:column;justify-content:center;align-items:center;z-index:150;text-align:center}
+.overlay.show{display:flex}
+.overlay h1{font-size:40px;margin-bottom:20px;color:#fff}
+.overlay h1.green{color:#4bff4b}
+.overlay .score-big{font-size:64px;font-weight:900;color:#ffd86b;margin:10px 0 30px}
+.overlay button{padding:16px 48px;border:none;border-radius:14px;font-size:18px;font-weight:900;background:#5be3ff;color:#000;cursor:pointer;transition:0.2s;margin:10px;width:280px;}
+.overlay button:hover{filter:brightness(1.15);transform:scale(1.05)}
+.overlay button.secondary{background:rgba(255,255,255,0.1);color:#fff;border:1px solid #555}
+
+/* Всплывающий текст */
+.float-text{position:absolute;font-size:32px;font-weight:900;pointer-events:none;
+  text-shadow:0 2px 10px rgba(0,0,0,0.8);animation:floatUp 1s ease-out forwards;z-index:100;transform:translate(-50%, -50%)}
+@keyframes floatUp{0%{transform:translate(-50%,-50%) scale(0.5);opacity:0}
+  20%{transform:translate(-50%,-50%) scale(1.2);opacity:1}
+  80%{transform:translate(-50%,-50%) scale(1);opacity:1}
+  100%{transform:translate(-50%,-50%) scale(1);opacity:0}}
+
+.reset-btn{position:absolute;bottom:20px;right:20px;background:#444;border:none;border-radius:8px;padding:10px 16px;color:#fff;font-weight:700;cursor:pointer;z-index:20;font-size:12px;transition:0.2s;display:none;}
+.reset-btn:hover{background:#666}
+</style>
+</head>
+<body>
+
+<div id="app">
+  <div id="loader">
+    <div class="spinner"></div>
+    Загрузка карты мира...
+  </div>
+
+  <div class="top-bar" id="topBar">
+    <div class="stat-box">
+      <div class="lbl">СЧЕТ</div>
+      <div class="val" id="scoreText">0</div>
+    </div>
+  </div>
+
+  <div id="map-container"></div>
+  
+  <div class="bottom-bar" id="bottomBar">
+    <div class="question-text" id="questionText">Где находится <span id="targetName">...</span>?</div>
+    <button id="btnNext" onclick="nextQuestion()">Далее ➔</button>
+  </div>
+
+  <button class="reset-btn" id="btnReset" onclick="showStartScreen()">Сменить регион</button>
+
+  <div class="overlay show" id="startScreen">
+    <h1>Выбери регион</h1>
+    <div style="display:flex; flex-direction:column; margin-top:20px;">
+      <button onclick="startGame('europe')">🇪🇺 Европа</button>
+      <button onclick="startGame('asia')">🌏 Азия</button>
+    </div>
+  </div>
+
+  <div class="overlay" id="overlay">
+    <h1 class="green">ПОБЕДА!</h1>
+    <div class="score-big" id="finalScore">0</div>
+    <p style="color:#9aa0c0;margin-bottom:30px;font-size:16px;">Вы выучили все страны!</p>
+    <button onclick="startGame(currentRegion)">ЕЩЁ РАЗ</button>
+    <button class="secondary" onclick="showStartScreen()">СМЕНИТЬ РЕГИОН</button>
+  </div>
+</div>
+
+<script>
+const EUROPEAN_COUNTRIES = [
+  "RU", "FR", "DE", "IT", "ES", "GB", "PL", "UA", "SE", "NO", "FI", "GR", "PT", "NL", "BE", 
+  "CH", "AT", "CZ", "SK", "HU", "RO", "BG", "RS", "HR", "BA", "AL", "MK", "DK", 
+  "IE", "IS", "LT", "LV", "EE", "BY", "MD"
+];
+
+const ASIAN_COUNTRIES = [
+  "RU", "CN", "IN", "JP", "KR", "KP", "MN", "KZ", "UZ", "TM", "KG", 
+  "TJ", "AF", "PK", "IR", "IQ", "TR", "SY", "JO", 
+  "SA", "YE", "OM", "AE", "QA", "KW", 
+  "IL", "LB", "TH", "VN", "LA", "KH", "MM", 
+  "MY", "ID", "PH", "NP", "BT", "BD", 
+  "LK", "GE", "AM", "AZ", "CY"
+];
+
+const RU_NAMES = {
+  "IQ": "Ирак", "RU": "Россия", "CN": "Китай", "IN": "Индия",
+  "JP": "Япония", "KR": "Южная Корея", "KP": "КНДР",
+  "MN": "Монголия", "KZ": "Казахстан", "UZ": "Узбекистан",
+  "TM": "Туркменистан", "KG": "Киргизия", "TJ": "Таджикистан",
+  "AF": "Афганистан", "PK": "Пакистан", "IR": "Иран",
+  "TR": "Турция", "SY": "Сирия", "JO": "Иордания",
+  "SA": "Саудовская Аравия", "YE": "Йемен", "OM": "Оман",
+  "AE": "ОАЭ", "QA": "Катар", "KW": "Кувейт",
+  "IL": "Израиль", "LB": "Ливан", "TH": "Таиланд",
+  "VN": "Вьетнам", "LA": "Лаос", "KH": "Камбоджа", "MM": "Мьянма",
+  "MY": "Малайзия", "ID": "Индонезия", "PH": "Филиппины",
+  "NP": "Непал", "BT": "Бутан", "BD": "Бангладеш",
+  "LK": "Шри-Ланка", "GE": "Грузия", "AM": "Армения", "AZ": "Азербайджан",
+  "CY": "Кипр", "FR": "Франция", "DE": "Германия", "IT": "Италия",
+  "ES": "Испания", "GB": "Великобритания", "PL": "Польша",
+  "UA": "Украина", "SE": "Швеция", "NO": "Норвегия", "FI": "Финляндия",
+  "GR": "Греция", "PT": "Португалия", "NL": "Нидерланды",
+  "BE": "Бельгия", "CH": "Швейцария", "AT": "Австрия",
+  "CZ": "Чехия", "SK": "Словакия", "HU": "Венгрия",
+  "RO": "Румыния", "BG": "Болгария", "RS": "Сербия",
+  "HR": "Хорватия", "BA": "Босния и Герцеговина",
+  "AL": "Албания", "MK": "Северная Македония",
+  "DK": "Дания", "IE": "Ирландия", "IS": "Исландия",
+  "LT": "Литва", "LV": "Латвия", "EE": "Эстония",
+  "BY": "Беларусь", "MD": "Молдова"
+};
+
+let currentRegion = 'europe';
+let targetCountry = "";
+let score = 0;
+let isGameOver = true;
+let isQuestionOver = false; 
+let attemptsLeft = 3;       
+let mapData = null;
+let solvedCountries = []; 
+
+window.addEventListener('load', () => {
+  d3.json('https://cdn.jsdelivr.net/gh/nvkelso/natural-earth-vector@master/geojson/ne_110m_admin_0_countries.geojson')
+    .then(data => {
+      mapData = data;
+      document.getElementById('loader').style.display = 'none';
+    })
+    .catch(err => {
+      console.error(err);
+      document.getElementById('loader').innerHTML = '<p style="color:#ff5b7f; font-size: 16px;">Ошибка загрузки карты.<br>Проверьте интернет.</p>';
+    });
+});
+
+function showStartScreen() {
+  document.getElementById('startScreen').classList.add('show');
+  document.getElementById('overlay').classList.remove('show');
+  document.getElementById('topBar').style.display = 'none';
+  document.getElementById('bottomBar').style.display = 'none';
+  document.getElementById('btnReset').style.display = 'none';
+  document.getElementById('map-container').innerHTML = '';
+  isGameOver = true;
+}
+
+function startGame(region) {
+  if (!mapData) return;
+  
+  currentRegion = region;
+  score = 0;
+  isGameOver = false;
+  solvedCountries = [];
+
+  document.getElementById('startScreen').classList.remove('show');
+  document.getElementById('overlay').classList.remove('show');
+  document.getElementById('topBar').style.display = 'flex';
+  document.getElementById('bottomBar').style.display = 'flex';
+  document.getElementById('btnReset').style.display = 'block';
+  document.getElementById('btnNext').style.display = 'none';
+
+  drawMap();
+  updateUI();
+  pickNewTarget();
+}
+
+function drawMap() {
+  const container = document.getElementById('map-container');
+  container.innerHTML = '';
+  
+  if (!mapData || !mapData.features) return;
+
+  const list = currentRegion === 'europe' ? EUROPEAN_COUNTRIES : ASIAN_COUNTRIES;
+  const features = mapData.features.filter(f => list.includes(f.properties.ISO_A2));
+
+  if (features.length === 0) return;
+
+  const svg = d3.select("#map-container").append("svg")
+      .attr("width", "100%")
+      .attr("height", "100%")
+      .attr("viewBox", "0 0 1000 800")
+      .attr("preserveAspectRatio", "xMidYMid meet");
+
+  let fitFeatures = features;
+  if (currentRegion === 'europe') {
+    fitFeatures = features.filter(f => f.properties.ISO_A2 !== 'RU' && f.properties.ISO_A2 !== 'TR');
+  } else if (currentRegion === 'asia') {
+    fitFeatures = features.filter(f => f.properties.ISO_A2 !== 'RU');
+  }
+
+  const projection = d3.geoMercator().fitExtent([[20, 20], [980, 780]], { type: "FeatureCollection", features: fitFeatures });
+  const path = d3.geoPath().projection(projection);
+
+  svg.selectAll("path")
+      .data(features)
+      .enter().append("path")
+      .attr("d", path)
+      .attr("id", d => d.properties.ISO_A2)
+      .on("click", (event, d) => {
+        if (isGameOver || isQuestionOver) return;
+        processGuess(d.properties.ISO_A2);
+      });
+}
+
+function pickNewTarget() {
+  if (isGameOver) return;
+  
+  const list = currentRegion === 'europe' ? EUROPEAN_COUNTRIES : ASIAN_COUNTRIES;
+  const available = list.filter(c => !solvedCountries.includes(c));
+  
+  if (available.length === 0) {
+    winGame();
+    return;
+  }
+
+  targetCountry = available[Math.floor(Math.random() * available.length)];
+  
+  isQuestionOver = false;
+  attemptsLeft = 3; 
+  
+  document.getElementById('questionText').innerHTML = `Где находится <span id="targetName" style="color:#5be3ff;font-weight:700;">${RU_NAMES[targetCountry] || targetCountry}</span>?`;
+  document.getElementById('btnNext').style.display = 'none';
+  
+  d3.selectAll("#map-container path").classed("wrong", false);
+}
+
+function processGuess(clickedId) {
+  const list = currentRegion === 'europe' ? EUROPEAN_COUNTRIES : ASIAN_COUNTRIES;
+  if (!list.includes(clickedId)) return;
+
+  const clickedPath = d3.select(`#${clickedId}`);
+
+  if (clickedId === targetCountry) {
+    score++;
+    updateUI();
+    isQuestionOver = true;
+    
+    if (!solvedCountries.includes(clickedId)) solvedCountries.push(clickedId);
+    clickedPath.classed("solved", true).classed("wrong", false);
+    
+    showFloatText(clickedPath.node(), 'Верно!', '#4bff4b');
+    document.getElementById('questionText').innerHTML = `<span style="color:#4bff4b">Верно! Это ${RU_NAMES[targetCountry]}</span>`;
+    document.getElementById('btnNext').style.display = 'block';
+    
+  } else {
+    attemptsLeft--;
+    clickedPath.classed("wrong", true); 
+    showFloatText(clickedPath.node(), 'Неверно!', '#ff5b7f');
+    
+    if (attemptsLeft > 0) {
+      document.getElementById('questionText').innerHTML = `<span style="color:#ff5b7f">Неверно! Осталось попыток: ${attemptsLeft}</span>`;
+    } else {
+      isQuestionOver = true;
+      if (!solvedCountries.includes(targetCountry)) solvedCountries.push(targetCountry);
+      
+      // Используем новый класс missed (желтый) вместо solved (зеленого)
+      d3.select(`#${targetCountry}`).classed("missed", true); 
+      
+      document.getElementById('questionText').innerHTML = `<span style="color:#ffd86b">Попытки кончились. Это ${RU_NAMES[targetCountry]}!</span>`;
+      document.getElementById('btnNext').style.display = 'block';
+    }
+  }
+}
+
+function nextQuestion() {
+  pickNewTarget();
+}
+
+function winGame() {
+  isGameOver = true;
+  document.getElementById('finalScore').textContent = score;
+  document.getElementById('overlay').classList.add('show');
+  document.getElementById('btnNext').style.display = 'none';
+}
+
+function showFloatText(pathNode, text, color) {
+  const rect = pathNode.getBoundingClientRect();
+  const el = document.createElement('div');
+  el.className = 'float-text';
+  el.textContent = text;
+  el.style.left = (rect.left + rect.width / 2) + 'px';
+  el.style.top = (rect.top + rect.height / 2) + 'px';
+  el.style.color = color;
+  document.getElementById('app').appendChild(el);
+  setTimeout(() => el.remove(), 1000);
+}
+
+function updateUI() {
+  document.getElementById('scoreText').textContent = score;
+}
+</script>
+</body>
+</html>
