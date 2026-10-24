@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<title>Base Defense</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none}
+html,body{width:100vw;height:100vh;overflow:hidden;background:#0a0a1a;
+  font-family:-apple-system,'Segoe UI',Roboto,sans-serif;color:#fff;
+  display:flex;justify-content:center;align-items:center}
+#game-container{position:relative;width:100%;max-width:1200px;height:100vh;background:#0d0d1a;display:flex;flex-direction:column;overflow:hidden}
+canvas{flex:1;display:block;cursor:crosshair}
+
+/* HUD */
+.hud{position:absolute;top:20px;left:20px;right:20px;display:flex;justify-content:space-between;
+  pointer-events:none;z-index:5;gap:12px;flex-wrap:wrap}
+.hud-box{background:rgba(0,0,0,.65);backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,.1);
+  border-radius:16px;padding:10px 20px;font-weight:800;text-align:center;min-width:110px;
+  box-shadow:0 8px 32px rgba(0,0,0,.3)}
+.hud-box .label{font-size:10px;color:#9aa0c0;letter-spacing:2px;margin-bottom:4px}
+.hud-box .value{font-size:22px;color:#5be3ff;text-shadow:0 0 10px rgba(91,227,255,.4)}
+.hud-box.hp .value{color:#5bff9d;text-shadow:0 0 10px rgba(91,255,157,.4)}
+.hud-box.wave .value{color:#ff5b7f;text-shadow:0 0 10px rgba(255,91,127,.4)}
+.hud-box.gold .value{color:#ffd86b;text-shadow:0 0 10px rgba(255,216,107,.4)}
+
+/* Панель управления */
+.panel{position:absolute;bottom:20px;left:20px;right:20px;background:rgba(15,15,30,.85);
+  backdrop-filter:blur(15px);border:1px solid rgba(255,255,255,.1);border-radius:24px;
+  padding:16px;display:flex;flex-direction:column;gap:10px;z-index:5;
+  box-shadow:0 20px 60px rgba(0,0,0,.5)}
+.panel-row{display:flex;gap:10px;justify-content:center}
+.btn{flex:1;max-width:180px;padding:14px 10px;border:none;border-radius:16px;background:rgba(255,255,255,.05);
+  border:1px solid rgba(255,255,255,.1);color:#fff;font-family:inherit;font-weight:800;
+  font-size:14px;cursor:pointer;transition:all .2s;display:flex;flex-direction:column;
+  align-items:center;gap:4px}
+.btn:hover:not(:disabled){background:rgba(160,107,255,.2);border-color:rgba(160,107,255,.5);transform:translateY(-2px)}
+.btn:active:not(:disabled){transform:scale(.98)}
+.btn.active{background:rgba(91,227,255,.2);border-color:#5be3ff;box-shadow:0 0 20px rgba(91,227,255,.3)}
+.btn:disabled{opacity:.3;cursor:not-allowed}
+.btn .icon{font-size:24px}
+.btn .name{font-size:12px;color:#9aa0c0}
+.btn .cost{font-size:11px;color:#ffd86b}
+
+/* Оверлеи */
+.overlay{position:absolute;inset:0;background:rgba(10,10,26,.95);backdrop-filter:blur(20px);
+  display:none;flex-direction:column;justify-content:center;align-items:center;padding:30px;
+  z-index:10;text-align:center;animation:fadeIn .4s ease}
+.overlay.show{display:flex}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+.overlay h1{font-size:40px;margin-bottom:12px;font-weight:900;
+  background:linear-gradient(90deg,#5be3ff,#5bff9d);
+  -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;
+  filter:drop-shadow(0 0 20px rgba(91,227,255,.5))}
+.overlay h1.dead{background:linear-gradient(90deg,#ff5b7f,#ffd86b);
+  -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;
+  filter:drop-shadow(0 0 20px rgba(255,91,127,.5))}
+.overlay .big{font-size:56px;font-weight:900;color:#ffd86b;margin:16px 0;
+  filter:drop-shadow(0 0 20px rgba(255,216,107,.6))}
+.overlay p{color:#9aa0c0;font-size:16px;line-height:1.6;max-width:400px;margin-bottom:8px}
+.overlay button{margin-top:24px;padding:16px 48px;border:none;border-radius:16px;
+  font-size:18px;font-weight:900;font-family:inherit;cursor:pointer;letter-spacing:1px;
+  background:linear-gradient(135deg,#5be3ff,#5bff9d);color:#001;transition:.2s;
+  box-shadow:0 10px 30px rgba(91,227,255,.4)}
+.overlay button:hover{filter:brightness(1.15);transform:translateY(-2px) scale(1.03);
+  box-shadow:0 15px 40px rgba(91,227,255,.6)}
+
+#startScreen{position:absolute;inset:0;background:rgba(10,10,26,.96);backdrop-filter:blur(20px);
+  display:flex;flex-direction:column;justify-content:center;align-items:center;padding:30px;
+  z-index:20;text-align:center}
+#startScreen.hidden{display:none}
+#startScreen h1{font-size:52px;margin-bottom:12px;font-weight:900;letter-spacing:3px;
+  background:linear-gradient(90deg,#5be3ff,#5bff9d,#ffd86b);
+  -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;
+  filter:drop-shadow(0 0 30px rgba(91,227,255,.5))}
+#startScreen .sub{color:#9aa0c0;font-size:14px;letter-spacing:5px;margin-bottom:30px;font-weight:700}
+#startScreen .rules{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.1);
+  border-radius:20px;padding:24px;max-width:420px;margin-bottom:24px;text-align:left;
+  font-size:14px;color:#9aa0c0;line-height:2;backdrop-filter:blur(10px)}
+#startScreen .rules b{color:#5be3ff}
+#startScreen button{padding:18px 56px;border:none;border-radius:16px;
+  font-size:20px;font-weight:900;font-family:inherit;cursor:pointer;letter-spacing:1px;
+  background:linear-gradient(135deg,#5be3ff,#5bff9d);color:#001;transition:.2s;
+  box-shadow:0 10px 30px rgba(91,227,255,.4)}
+#startScreen button:hover{filter:brightness(1.15);transform:translateY(-2px) scale(1.03);
+  box-shadow:0 15px 40px rgba(91,227,255,.6)}
+</style>
+</head>
+<body>
+
+<div id="game-container">
+  <canvas id="cv"></canvas>
+
+  <div class="hud">
+    <div class="hud-box hp"><div class="label">БАЗА</div><div class="value" id="hHp">100</div></div>
+    <div class="hud-box wave"><div class="label">ВОЛНА</div><div class="value" id="hWave">1</div></div>
+    <div class="hud-box gold"><div class="label">ЗОЛОТО</div><div class="value" id="hGold">0</div></div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-row">
+      <button class="btn" id="btnTower">
+        <span class="icon">🔫</span>
+        <span class="name">Турель</span>
+        <span class="cost">50 🪙</span>
+      </button>
+      <button class="btn" id="btnHeal">
+        <span class="icon">❤️</span>
+        <span class="name">Лечение</span>
+        <span class="cost">30 🪙</span>
+      </button>
+      <button class="btn" id="btnUpgrade">
+        <span class="icon">⭐</span>
+        <span class="name">Прокачка</span>
+        <span class="cost" id="upgradeCost">—</span>
+      </button>
+    </div>
+    <div class="panel-row">
+      <button class="btn" id="btnSpeed">
+        <span class="icon">⏩</span>
+        <span class="name">Скорость</span>
+        <span class="cost" id="speedText">x1</span>
+      </button>
+      <button class="btn" id="btnPause">
+        <span class="icon">⏸️</span>
+        <span class="name" id="pauseText">Пауза</span>
+      </button>
+    </div>
+  </div>
+
+  <div id="startScreen">
+    <h1>BASE DEFENSE</h1>
+    <div class="sub">ЗАЩИТИ БАЗУ</div>
+    <div class="rules">
+      🎯 <b>Цель:</b> не дай врагам разрушить базу<br>
+      🏗️ <b>Строй турели:</b> кликай по полю, чтобы ставить<br>
+      ⭐ <b>Прокачивай:</b> кликни по турели → «Прокачка»<br>
+      🌊 <b>Волны:</b> с каждой волной враги сильнее<br>
+      💰 <b>Золото:</b> падает с врагов, трать с умом
+    </div>
+    <button onclick="startGame()">ИГРАТЬ</button>
+  </div>
+
+  <div class="overlay" id="deathScreen">
+    <h1 class="dead">💥 БАЗА РАЗРУШЕНА</h1>
+    <div class="big" id="finalWave">Волна 1</div>
+    <p>Продержался</p>
+    <p style="font-size:14px;color:#666">Рекорд: <b id="bestWave">Волна 1</b></p>
+    <button onclick="restartGame()">ЕЩЁ РАЗ</button>
+  </div>
+</div>
+
+<script>
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+let W = 0, H = 0;
+
+const state = {
+  running: false, paused: false, gameSpeed: 1,
+  hp: 100, maxHp: 100, gold: 100, wave: 1,
+  waveTimer: 0, spawnTimer: 0, enemiesToSpawn: 0,
+  basePos: { x: 0, y: 0 }, enemies: [], towers: [],
+  bullets: [], particles: [], goldDrops: [],
+  selectedTower: null, buildMode: false, bestWave: 1
+};
+
+// Фоновые декорации (трава, камни)
+const decorations = [];
+for (let i = 0; i < 300; i++) {
+  decorations.push({
+    x: Math.random() * 2000 - 1000,
+    y: Math.random() * 2000 - 1000,
+    type: Math.random() < 0.7 ? 'grass' : 'rock',
+    size: 5 + Math.random() * 20,
+    rotation: Math.random() * Math.PI * 2
+  });
+}
+
+function resize() {
+  const rect = cv.parentElement.getBoundingClientRect();
+  W = cv.width = rect.width;
+  H = cv.height = rect.height;
+  
+  if (state.basePos.x === 0) {
+    state.basePos = { x: W / 2, y: H / 2 };
+  }
+}
+window.addEventListener('resize', resize);
+resize();
+
+const pointer = { x: 0, y: 0 };
+cv.addEventListener('pointermove', e => {
+  const rect = cv.getBoundingClientRect();
+  pointer.x = e.clientX - rect.left;
+  pointer.y = e.clientY - rect.top;
+});
+cv.addEventListener('pointerdown', e => {
+  const rect = cv.getBoundingClientRect();
+  pointer.x = e.clientX - rect.left;
+  pointer.y = e.clientY - rect.top;
+  handleClick(pointer.x, pointer.y);
+});
+
+function handleClick(x, y) {
+  if (!state.running || state.paused) return;
+  for (const t of state.towers) {
+    const dx = x - t.x, dy = y - t.y;
+    if (dx*dx + dy*dy < 30*30) { 
+      state.selectedTower = t; 
+      state.buildMode = false; 
+      updatePanel(); 
+      return; 
+    }
+  }
+  if (state.buildMode) {
+    if (state.gold < 50) return;
+    const bdx = x - state.basePos.x, bdy = y - state.basePos.y;
+    if (bdx*bdx + bdy*bdy < 80*80) return;
+    for (const t of state.towers) {
+      const dx = x - t.x, dy = y - t.y;
+      if (dx*dx + dy*dy < 50*50) return;
+    }
+    state.gold -= 50;
+    state.towers.push({ x, y, level: 1, cooldown: 0, angle: -Math.PI/2, dmg: 8, range: 90, rate: 0.7 });
+    state.buildMode = false;
+    updatePanel(); updateHUD();
+  } else {
+    state.selectedTower = null; updatePanel();
+  }
+}
+
+const btnTower = document.getElementById('btnTower'), btnHeal = document.getElementById('btnHeal'), btnUpgrade = document.getElementById('btnUpgrade');
+const btnSpeed = document.getElementById('btnSpeed'), btnPause = document.getElementById('btnPause');
+
+btnTower.onclick = () => { if (state.gold >= 50) { state.buildMode = !state.buildMode; state.selectedTower = null; updatePanel(); } };
+btnHeal.onclick = () => { if (state.gold >= 30 && state.hp < state.maxHp) { state.gold -= 30; state.hp = Math.min(state.maxHp, state.hp + 30); updateHUD(); updatePanel(); } };
+btnUpgrade.onclick = () => {
+  const t = state.selectedTower; if (!t) return;
+  const cost = Math.floor(30 * Math.pow(1.6, t.level - 1));
+  if (state.gold >= cost) {
+    state.gold -= cost; t.level++;
+    t.dmg = 8 * Math.pow(1.35, t.level - 1);
+    t.range = 90 + (t.level - 1) * 15;
+    t.rate = Math.max(0.15, 0.7 - (t.level - 1) * 0.05);
+    updatePanel(); updateHUD();
+  }
+};
+btnSpeed.onclick = () => { state.gameSpeed = state.gameSpeed === 1 ? 2 : 1; document.getElementById('speedText').textContent = 'x' + state.gameSpeed; btnSpeed.classList.toggle('active', state.gameSpeed > 1); };
+btnPause.onclick = () => { state.paused = !state.paused; document.getElementById('pauseText').textContent = state.paused ? 'Продолжить' : 'Пауза'; btnPause.classList.toggle('active', state.paused); };
+
+function updatePanel() {
+  btnTower.disabled = state.gold < 50;
+  btnTower.classList.toggle('active', state.buildMode);
+  btnHeal.disabled = state.gold < 30 || state.hp >= state.maxHp;
+  if (state.selectedTower) {
+    const cost = Math.floor(30 * Math.pow(1.6, state.selectedTower.level - 1));
+    btnUpgrade.disabled = state.gold < cost;
+    document.getElementById('upgradeCost').textContent = 'Ур.' + state.selectedTower.level + ' → ' + cost + '🪙';
+  } else {
+    btnUpgrade.disabled = true;
+    document.getElementById('upgradeCost').textContent = 'выбери';
+  }
+}
+
+function updateHUD() {
+  document.getElementById('hHp').textContent = Math.ceil(state.hp);
+  document.getElementById('hWave').textContent = state.wave;
+  document.getElementById('hGold').textContent = state.gold;
+}
+
+function initGame() {
+  resize();
+  state.hp = 100; state.maxHp = 100; state.gold = 100; state.wave = 1;
+  state.waveTimer = 0; state.spawnTimer = 0; state.enemiesToSpawn = 3;
+  state.enemies = []; state.towers = []; state.bullets = []; state.particles = []; state.goldDrops = [];
+  state.selectedTower = null; state.buildMode = false; state.paused = false; state.gameSpeed = 1;
+  state.basePos = { x: W / 2, y: H / 2 };
+  updateHUD(); updatePanel();
+}
+
+function spawnEnemy() {
+  const side = Math.floor(Math.random() * 4);
+  let x, y;
+  if (side === 0) { x = Math.random() * W; y = -20; }
+  else if (side === 1) { x = W + 20; y = Math.random() * H; }
+  else if (side === 2) { x = Math.random() * W; y = H + 20; }
+  else { x = -20; y = Math.random() * H; }
+  const hp = 15 + state.wave * 8;
+  state.enemies.push({ x, y, hp, maxHp: hp, speed: 30 + state.wave * 2, size: 12 + Math.min(state.wave * 0.5, 8), reward: 5 + state.wave, hitFlash: 0 });
+}
+
+function update(dt) {
+  if (!state.running || state.paused) return;
+  dt *= state.gameSpeed;
+
+  if (state.enemiesToSpawn > 0) {
+    state.spawnTimer -= dt;
+    if (state.spawnTimer <= 0) { spawnEnemy(); state.enemiesToSpawn--; state.spawnTimer = 0.7; }
+  } else if (state.enemies.length === 0) {
+    state.waveTimer -= dt;
+    if (state.waveTimer <= 0) {
+      state.wave++; state.gold += 20 + state.wave * 5; state.waveTimer = 2;
+      state.enemiesToSpawn = 3 + state.wave * 2; updateHUD();
+    }
+  }
+
+  for (const e of state.enemies) {
+    if (e.hitFlash > 0) e.hitFlash -= dt;
+    const dx = state.basePos.x - e.x, dy = state.basePos.y - e.y, dist = Math.hypot(dx, dy);
+    if (dist < 40) { state.hp -= 8; e.dead = true; if (state.hp <= 0) { state.hp = 0; gameOver(); } }
+    else { e.x += (dx / dist) * e.speed * dt; e.y += (dy / dist) * e.speed * dt; }
+  }
+  state.enemies = state.enemies.filter(e => !e.dead);
+
+  for (const t of state.towers) {
+    t.cooldown -= dt;
+    let nearest = null, minDist = Infinity;
+    for (const e of state.enemies) {
+      const dx = e.x - t.x, dy = e.y - t.y, d = dx*dx + dy*dy;
+      if (d < t.range * t.range && d < minDist) { minDist = d; nearest = e; }
+    }
+    if (nearest) {
+      t.angle = Math.atan2(nearest.y - t.y, nearest.x - t.x);
+      if (t.cooldown <= 0) { t.cooldown = t.rate; state.bullets.push({ x: t.x, y: t.y, vx: Math.cos(t.angle)*500, vy: Math.sin(t.angle)*500, dmg: t.dmg, life: 1 }); }
+    }
+  }
+
+  for (const b of state.bullets) {
+    b.x += b.vx * dt; b.y += b.vy * dt; b.life -= dt;
+    for (const e of state.enemies) {
+      const dx = e.x - b.x, dy = e.y - b.y;
+      if (dx*dx + dy*dy < (e.size + 5) * (e.size + 5)) {
+        e.hp -= b.dmg; e.hitFlash = 0.1; b.life = 0;
+        for (let i = 0; i < 4; i++) state.particles.push({ x: b.x, y: b.y, vx: (Math.random()-0.5)*150, vy: (Math.random()-0.5)*150, life: 0.3, color: '#ffd86b' });
+        if (e.hp <= 0) {
+          e.dead = true; state.goldDrops.push({ x: e.x, y: e.y, value: e.reward, life: 3 });
+          for (let i = 0; i < 8; i++) state.particles.push({ x: e.x, y: e.y, vx: (Math.random()-0.5)*200, vy: (Math.random()-0.5)*200, life: 0.5, color: '#ff5b7f' });
+        }
+        break;
+      }
+    }
+  }
+  state.bullets = state.bullets.filter(b => b.life > 0);
+  state.enemies = state.enemies.filter(e => !e.dead);
+
+  for (const p of state.particles) { p.x += p.vx*dt; p.y += p.vy*dt; p.life -= dt; }
+  state.particles = state.particles.filter(p => p.life > 0);
+
+  for (const g of state.goldDrops) {
+    const dx = state.basePos.x - g.x, dy = state.basePos.y - g.y, dist = Math.hypot(dx, dy) || 1;
+    if (dist < 250) { g.x += (dx / dist) * 300 * dt; g.y += (dy / dist) * 300 * dt; }
+    g.life -= dt;
+    if (dist < 50 || g.life <= 0) { state.gold += g.value; g.dead = true; updateHUD(); }
+  }
+  state.goldDrops = state.goldDrops.filter(g => !g.dead);
+
+  updateHUD(); updatePanel();
+}
+
+function draw() {
+  // Фон
+  ctx.fillStyle = '#0f171e';
+  ctx.fillRect(0, 0, W, H);
+  
+  // Паттерн земли (круги и травки)
+  const camOffsetX = -state.basePos.x + W/2;
+  const camOffsetY = -state.basePos.y + H/2;
+  
+  decorations.forEach(d => {
+    const sx = d.x + camOffsetX, sy = d.y + camOffsetY;
+    if (sx < -50 || sx > W + 50 || sy < -50 || sy > H + 50) return;
+    
+    if (d.type === 'grass') {
+      ctx.strokeStyle = 'rgba(60, 120, 60, 0.4)'; ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(sx, sy);
+      ctx.quadraticCurveTo(sx - 5, sy - 10, sx - 3, sy - 15);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(sx, sy);
+      ctx.quadraticCurveTo(sx + 5, sy - 10, sx + 3, sy - 15);
+      ctx.stroke();
+    } else {
+      ctx.fillStyle = 'rgba(30, 30, 40, 0.6)';
+      ctx.beginPath(); ctx.arc(sx, sy, d.size/2, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = 'rgba(60, 60, 75, 0.4)';
+      ctx.beginPath(); ctx.arc(sx - 2, sy - 2, d.size/3, 0, Math.PI*2); ctx.fill();
+    }
+  });
+
+  // База
+  const b = state.basePos;
+  const pulse = 1 + Math.sin(Date.now() / 500) * 0.05;
+  const r = 40 * pulse;
+  const grd = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, r * 2.5);
+  grd.addColorStop(0, 'rgba(91,255,157,.4)');
+  grd.addColorStop(1, 'rgba(91,255,157,0)');
+  ctx.fillStyle = grd;
+  ctx.beginPath(); ctx.arc(b.x, b.y, r * 2.5, 0, Math.PI * 2); ctx.fill();
+
+  ctx.fillStyle = '#1a1a35';
+  ctx.strokeStyle = '#5bff9d';
+  ctx.lineWidth = 4;
+  ctx.beginPath(); ctx.arc(b.x, b.y, r, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  
+  // Ядро базы
+  ctx.fillStyle = '#5bff9d';
+  ctx.beginPath(); ctx.arc(b.x, b.y, r * 0.5, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#fff'; ctx.font = 'bold 30px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText('🏠', b.x, b.y + 2);
+
+  // HP бар
+  const hpPct = state.hp / state.maxHp;
+  ctx.fillStyle = 'rgba(0,0,0,.6)'; ctx.fillRect(b.x - 40, b.y - r - 20, 80, 8);
+  ctx.fillStyle = hpPct > 0.5 ? '#5bff9d' : hpPct > 0.25 ? '#ffd86b' : '#ff5b7f';
+  ctx.fillRect(b.x - 40, b.y - r - 20, 80 * hpPct, 8);
+
+  // Турели
+  for (const t of state.towers) {
+    const tgrd = ctx.createRadialGradient(t.x, t.y, 0, t.x, t.y, 40);
+    tgrd.addColorStop(0, 'rgba(160,107,255,.4)'); tgrd.addColorStop(1, 'rgba(160,107,255,0)');
+    ctx.fillStyle = tgrd; ctx.beginPath(); ctx.arc(t.x, t.y, 40, 0, Math.PI * 2); ctx.fill();
+    
+    ctx.fillStyle = '#2a2a50'; ctx.strokeStyle = '#a06bff'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(t.x, t.y, 18, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    
+    ctx.save(); ctx.translate(t.x, t.y); ctx.rotate(t.angle);
+    ctx.fillStyle = '#a06bff'; ctx.fillRect(0, -5, 26, 10); ctx.restore();
+    
+    ctx.fillStyle = '#fff'; ctx.font = 'bold 12px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(t.level, t.x, t.y);
+  }
+
+  // Пули
+  ctx.fillStyle = '#ffd86b'; ctx.shadowBlur = 10; ctx.shadowColor = '#ffd86b';
+  for (const b of state.bullets) { ctx.beginPath(); ctx.arc(b.x, b.y, 4, 0, Math.PI * 2); ctx.fill(); }
+  ctx.shadowBlur = 0;
+
+  // Враги
+  for (const e of state.enemies) {
+    const flash = e.hitFlash > 0;
+    const egrd = ctx.createRadialGradient(e.x, e.y, 0, e.x, e.y, e.size * 2);
+    egrd.addColorStop(0, flash ? 'rgba(255,255,255,.8)' : 'rgba(255,91,127,.4)'); egrd.addColorStop(1, 'rgba(255,91,127,0)');
+    ctx.fillStyle = egrd; ctx.beginPath(); ctx.arc(e.x, e.y, e.size * 2, 0, Math.PI * 2); ctx.fill();
+    
+    ctx.fillStyle = flash ? '#fff' : '#ff5b7f'; ctx.beginPath(); ctx.arc(e.x, e.y, e.size, 0, Math.PI * 2); ctx.fill();
+    
+    const ehp = e.hp / e.maxHp;
+    ctx.fillStyle = 'rgba(0,0,0,.5)'; ctx.fillRect(e.x - e.size, e.y - e.size - 10, e.size * 2, 4);
+    ctx.fillStyle = '#ff5b7f'; ctx.fillRect(e.x - e.size, e.y - e.size - 10, e.size * 2 * ehp, 4);
+  }
+
+  // Золото
+  for (const g of state.goldDrops) {
+    ctx.fillStyle = '#ffd86b'; ctx.shadowBlur = 15; ctx.shadowColor = '#ffd86b';
+    ctx.beginPath(); ctx.arc(g.x, g.y, 8, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0;
+    ctx.fillStyle = '#000'; ctx.font = 'bold 10px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(g.value, g.x, g.y);
+  }
+
+  // Частицы
+  for (const p of state.particles) {
+    ctx.globalAlpha = Math.min(1, p.life * 2); ctx.fillStyle = p.color;
+    ctx.beginPath(); ctx.arc(p.x, p.y, 4, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+
+  // Режим стройки
+  if (state.buildMode && state.running && !state.paused) {
+    const canBuild = state.gold >= 50;
+    ctx.strokeStyle = canBuild ? 'rgba(91,227,255,.6)' : 'rgba(255,91,127,.6)'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(pointer.x, pointer.y, 90, 0, Math.PI * 2); ctx.stroke();
+    ctx.fillStyle = canBuild ? 'rgba(91,227,255,.2)' : 'rgba(255,91,127,.2)';
+    ctx.beginPath(); ctx.arc(pointer.x, pointer.y, 25, 0, Math.PI * 2); ctx.fill();
+  }
+
+  // Выделенная турель
+  if (state.selectedTower) {
+    const t = state.selectedTower;
+    ctx.strokeStyle = 'rgba(91,227,255,.8)'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(t.x, t.y, t.range, 0, Math.PI * 2); ctx.stroke();
+    ctx.strokeStyle = 'rgba(91,227,255,.3)';
+    ctx.beginPath(); ctx.arc(t.x, t.y, 30, 0, Math.PI * 2); ctx.stroke();
+  }
+}
+
+let lastTime = performance.now();
+function loop(t) {
+  const dt = Math.min((t - lastTime) / 1000, 0.05);
+  lastTime = t;
+  update(dt);
+  draw();
+  requestAnimationFrame(loop);
+}
+
+function startGame() {
+  document.getElementById('startScreen').classList.add('hidden');
+  document.getElementById('deathScreen').classList.remove('show');
+  initGame();
+  state.running = true;
+}
+
+function restartGame() { startGame(); }
+
+function gameOver() {
+  state.running = false;
+  if (state.wave > state.bestWave) { state.bestWave = state.wave; localStorage.setItem('defense_best', state.bestWave); }
+  document.getElementById('finalWave').textContent = 'Волна ' + state.wave;
+  document.getElementById('bestWave').textContent = 'Волна ' + state.bestWave;
+  document.getElementById('deathScreen').classList.add('show');
+}
+
+state.bestWave = parseInt(localStorage.getItem('defense_best') || 1);
+resize();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

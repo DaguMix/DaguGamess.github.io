@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<title>Lucky Slots 777</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none}
+html,body{width:100vw;height:100vh;overflow:hidden;background:#0a0a12;
+  font-family:-apple-system,'Segoe UI',Roboto,sans-serif;color:#fff;
+  display:flex;justify-content:center;align-items:center;
+  background-image:
+    radial-gradient(circle at 50% 0%, rgba(255,216,107,.15), transparent 50%),
+    radial-gradient(circle at 50% 100%, rgba(255,91,127,.1), transparent 50%),
+    radial-gradient(circle at 0% 50%, rgba(160,107,255,.08), transparent 50%),
+    radial-gradient(circle at 100% 50%, rgba(91,227,255,.08), transparent 50%)}
+#game{position:relative;width:100%;max-width:1000px;height:100vh;display:flex;flex-direction:column;padding:16px;gap:12px}
+
+.hud{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.hud-box{flex:1;background:rgba(0,0,0,.6);backdrop-filter:blur(12px);
+  border:1px solid rgba(255,216,107,.2);border-radius:16px;padding:10px 16px;
+  display:flex;justify-content:space-between;align-items:center;
+  box-shadow:0 8px 32px rgba(0,0,0,.3)}
+.hud-box .label{font-size:11px;color:#9aa0c0;letter-spacing:2px;font-weight:700}
+.hud-box .value{font-size:22px;font-weight:900;color:#ffd86b;
+  text-shadow:0 0 15px rgba(255,216,107,.5);transition:transform .1s}
+.hud-box.jackpot .value{color:#ff5b7f;text-shadow:0 0 15px rgba(255,91,127,.5)}
+
+.slot-machine{flex:1;display:flex;justify-content:center;align-items:center;position:relative;padding:20px 0}
+.machine-frame{position:relative;background:linear-gradient(145deg,#1a1a35,#0f0f22);
+  border:3px solid #ffd86b;border-radius:30px;padding:30px;padding-top:50px;
+  box-shadow:0 0 80px rgba(255,216,107,.2),0 20px 60px rgba(0,0,0,.6),inset 0 0 40px rgba(255,216,107,.05);
+  max-width:100%}
+.machine-frame::before{content:'';position:absolute;top:0;left:50%;transform:translateX(-50%);
+  background:linear-gradient(90deg,#ffd86b,#ff5b7f,#a06bff,#5be3ff,#ffd86b);
+  height:4px;width:60%;border-radius:0 0 10px 10px;box-shadow:0 0 20px rgba(255,216,107,.6)}
+
+.reels{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;
+  background:#000;padding:16px;border-radius:16px;
+  box-shadow:inset 0 4px 20px rgba(0,0,0,.9), 0 0 30px rgba(255,216,107,.1)}
+.reel{width:120px;height:120px;background:linear-gradient(180deg,#1a1a2e,#0a0a12);
+  border:2px solid rgba(255,216,107,.2);border-radius:12px;
+  display:flex;justify-content:center;align-items:center;overflow:hidden;position:relative}
+.reel::before,.reel::after{content:'';position:absolute;left:0;right:0;height:20px;z-index:2;pointer-events:none}
+.reel::before{top:0;background:linear-gradient(180deg,#000,transparent)}
+.reel::after{bottom:0;background:linear-gradient(0deg,#000,transparent)}
+.symbol{font-size:70px;line-height:1;transition:transform .1s;filter:drop-shadow(0 4px 10px rgba(0,0,0,.6))}
+.reel.spinning .symbol{animation:reelSpin .1s linear infinite}
+@keyframes reelSpin{0%{transform:translateY(-100%)}50%{transform:translateY(0)}100%{transform:translateY(100%)}}
+.reel.win{border-color:#5bff9d;box-shadow:0 0 30px rgba(91,255,157,.6),inset 0 0 20px rgba(91,255,157,.2)}
+.reel.jackpot{animation:jackpotPulse .3s infinite}
+@keyframes jackpotPulse{0%,100%{border-color:#ffd86b;box-shadow:0 0 40px rgba(255,216,107,.8)}50%{border-color:#ff5b7f;box-shadow:0 0 40px rgba(255,91,127,.8)}}
+
+.win-indicator{position:absolute;top:-30px;left:50%;transform:translateX(-50%);
+  background:linear-gradient(90deg,#5bff9d,#5be3ff);color:#001;
+  padding:8px 24px;border-radius:20px;font-weight:900;font-size:16px;
+  box-shadow:0 0 30px rgba(91,255,157,.6);opacity:0;transition:opacity .3s;white-space:nowrap;z-index:10}
+.win-indicator.show{opacity:1}
+
+.controls{display:flex;flex-direction:column;gap:12px}
+.bet-section{display:flex;justify-content:center;align-items:center;gap:8px;
+  background:rgba(0,0,0,.5);border-radius:16px;padding:10px}
+.bet-btn{width:44px;height:44px;border-radius:12px;border:none;
+  background:rgba(255,216,107,.15);color:#ffd86b;font-size:20px;font-weight:900;
+  cursor:pointer;transition:.2s}
+.bet-btn:hover:not(:disabled){background:rgba(255,216,107,.3);transform:scale(1.05)}
+.bet-btn:disabled{opacity:.3;cursor:not-allowed}
+.bet-value{min-width:120px;text-align:center;font-size:22px;font-weight:900;color:#ffd86b}
+.bet-value .label{font-size:10px;color:#9aa0c0;letter-spacing:2px;display:block;margin-bottom:2px}
+
+.spin-btn{width:100%;padding:20px;border:none;border-radius:20px;
+  font-size:24px;font-weight:900;font-family:inherit;cursor:pointer;letter-spacing:3px;
+  background:linear-gradient(135deg,#ffd86b,#ff9a5b);
+  color:#001;transition:.2s;position:relative;overflow:hidden;
+  box-shadow:0 10px 40px rgba(255,216,107,.4)}
+.spin-btn::before{content:'';position:absolute;inset:0;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.5),transparent);
+  transform:translateX(-100%);transition:transform .5s}
+.spin-btn:hover:not(:disabled)::before{transform:translateX(100%)}
+.spin-btn:hover:not(:disabled){transform:translateY(-3px);box-shadow:0 15px 50px rgba(255,216,107,.6)}
+.spin-btn:active:not(:disabled){transform:scale(.98)}
+.spin-btn:disabled{opacity:.5;cursor:not-allowed;transform:none}
+
+/* Кнопка бонуса */
+.bonus-btn{width:100%;padding:16px;border:none;border-radius:20px;
+  font-size:18px;font-weight:900;font-family:inherit;cursor:pointer;letter-spacing:2px;
+  background:linear-gradient(135deg,#a06bff,#5be3ff);color:#fff;
+  transition:.2s;display:none;align-items:center;justify-content:center;gap:8px;
+  box-shadow:0 10px 40px rgba(160,107,255,.4);
+  animation:bonusPulse 1.5s infinite}
+.bonus-btn.show{display:flex}
+@keyframes bonusPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.02)}}
+.bonus-btn:hover{filter:brightness(1.15);transform:translateY(-2px)}
+
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.85);backdrop-filter:blur(10px);
+  display:none;justify-content:center;align-items:center;z-index:100;padding:20px}
+.modal.show{display:flex}
+.modal-box{background:linear-gradient(145deg,#1a1a35,#0f0f22);
+  border:2px solid #ffd86b;border-radius:24px;padding:40px;text-align:center;
+  max-width:400px;width:100%;animation:modalPop .4s cubic-bezier(.34,1.56,.64,1);
+  box-shadow:0 0 100px rgba(255,216,107,.5)}
+@keyframes modalPop{0%{transform:scale(.5);opacity:0}100%{transform:scale(1);opacity:1}}
+.modal-box h2{font-size:32px;margin-bottom:16px;
+  background:linear-gradient(90deg,#ffd86b,#ff5b7f);
+  -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;
+  filter:drop-shadow(0 0 20px rgba(255,216,107,.5))}
+.modal-box .big{font-size:56px;font-weight:900;color:#ffd86b;margin:16px 0;
+  text-shadow:0 0 30px rgba(255,216,107,.8)}
+.modal-box .desc{color:#9aa0c0;font-size:14px;margin-bottom:24px}
+.modal-box button{padding:16px 48px;border:none;border-radius:14px;
+  font-size:16px;font-weight:900;font-family:inherit;cursor:pointer;letter-spacing:1px;
+  background:linear-gradient(135deg,#5be3ff,#5bff9d);color:#001;transition:.2s;width:100%;margin-top:8px}
+.modal-box button:hover{transform:scale(1.03);filter:brightness(1.1)}
+.modal-box button.cancel{background:rgba(255,255,255,.1);color:#9aa0c0}
+
+.particle{position:fixed;pointer-events:none;z-index:200;font-size:24px}
+@media(max-width:600px){
+  .reel{width:90px;height:90px}
+  .symbol{font-size:54px}
+  .machine-frame{padding:20px;padding-top:40px}
+  .spin-btn{font-size:20px;padding:16px}
+}
+</style>
+</head>
+<body>
+
+<div id="game">
+  <div class="hud">
+    <div class="hud-box">
+      <span class="label">БАЛАНС</span>
+      <span class="value" id="balance">1000</span>
+    </div>
+    <div class="hud-box jackpot">
+      <span class="label">ДЖЕКПОТ</span>
+      <span class="value" id="jackpot">10 000</span>
+    </div>
+  </div>
+
+  <div class="slot-machine">
+    <div class="machine-frame">
+      <div class="win-indicator" id="winIndicator"></div>
+      <div class="reels">
+        <div class="reel" id="reel0"><div class="symbol">🍒</div></div>
+        <div class="reel" id="reel1"><div class="symbol">🍋</div></div>
+        <div class="reel" id="reel2"><div class="symbol">🔔</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <div class="bet-section">
+      <button class="bet-btn" onclick="changeBet(-1)">−</button>
+      <div class="bet-value">
+        <span class="label">СТАВКА</span>
+        <span id="betValue">10</span>
+      </div>
+      <button class="bet-btn" onclick="changeBet(1)">+</button>
+    </div>
+    <button class="spin-btn" id="spinBtn" onclick="spin()">SPIN</button>
+    
+    <button class="bonus-btn" id="bonusBtn" onclick="claimBonus()">
+      🎁 ЗАБРАТЬ БОНУС
+    </button>
+  </div>
+</div>
+
+<!-- Модалка выигрыша -->
+<div class="modal" id="winModal">
+  <div class="modal-box">
+    <h2 id="winTitle">ВЫИГРЫШ!</h2>
+    <div class="big" id="winAmount">+100</div>
+    <div class="desc" id="winDesc">Описание</div>
+    <button onclick="closeModal()">ПРОДОЛЖИТЬ</button>
+  </div>
+</div>
+
+<!-- Модалка нулевого баланса -->
+<div class="modal" id="brokeModal">
+  <div class="modal-box" style="border-color:#ff5b7f;">
+    <h2 style="background:linear-gradient(90deg,#ff5b7f,#ffd86b); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;">💸 ДЕНЬГИ КОНЧИЛИСЬ</h2>
+    <div class="desc" style="margin-top:20px;">Ты проиграл всё до копейки. Хочешь начать заново?</div>
+    <button onclick="resetGame()" style="background:linear-gradient(135deg,#ffd86b,#ff9a5b);color:#001;">🔄 НАЧАТЬ ЗАНОВО (1000 🪙)</button>
+    <button class="cancel" onclick="closeBrokeModal()">Я подожду</button>
+  </div>
+</div>
+
+<script>
+const SYMBOLS = [
+  { emoji: '🍒', name: 'Вишня',  mult3: 2,   mult2: 0.5, weight: 30 },
+  { emoji: '🍋', name: 'Лимон',  mult3: 3,   mult2: 1,   weight: 25 },
+  { emoji: '🍇', name: 'Виноград', mult3: 4, mult2: 1.5, weight: 20 },
+  { emoji: '🔔', name: 'Колокол', mult3: 6,  mult2: 2,   weight: 15 },
+  { emoji: '⭐', name: 'Звезда', mult3: 10,  mult2: 3,   weight: 8 },
+  { emoji: '💎', name: 'Алмаз',  mult3: 20,  mult2: 5,   weight: 1.5 },
+  { emoji: '7️⃣', name: 'Семёрка', mult3: 50, mult2: 10, weight: 0.5 },
+];
+
+const BETS = [1, 5, 10, 25, 50, 100, 250, 500];
+const START_JACKPOT = 10000;
+const JACKPOT_SYMBOL = '7️⃣';
+const START_BALANCE = 1000;
+
+const state = {
+  balance: START_BALANCE,
+  betIndex: 2,
+  jackpot: START_JACKPOT,
+  spinning: false,
+  reels: ['🍒', '🍋', '🔔'],
+};
+
+let audioCtx = null;
+function initAudio() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+}
+function playTone(freq, type = 'sine', dur = 0.15, vol = 0.1) {
+  if (!audioCtx) return;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = type;
+  osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+  gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
+  osc.connect(gain);
+  gain.connect(audioCtx.destination);
+  osc.start();
+  osc.stop(audioCtx.currentTime + dur);
+}
+function playWinSound() {
+  playTone(660, 'triangle', 0.1);
+  setTimeout(() => playTone(880, 'triangle', 0.1), 100);
+  setTimeout(() => playTone(1100, 'triangle', 0.2), 200);
+}
+
+function load() {
+  try {
+    const d = JSON.parse(localStorage.getItem('slots_save'));
+    if (d) {
+      state.balance = d.balance ?? START_BALANCE;
+      state.betIndex = d.betIndex ?? 2;
+      state.jackpot = d.jackpot ?? START_JACKPOT;
+      state.reels = d.reels ?? ['🍒', '🍋', '🔔'];
+    }
+  } catch(e){}
+  updateUI();
+  renderReels();
+}
+
+function save() {
+  localStorage.setItem('slots_save', JSON.stringify({
+    balance: state.balance,
+    betIndex: state.betIndex,
+    jackpot: state.jackpot,
+    reels: state.reels,
+  }));
+}
+
+function updateUI() {
+  document.getElementById('balance').textContent = fmt(state.balance);
+  document.getElementById('jackpot').textContent = fmt(state.jackpot);
+  document.getElementById('betValue').textContent = BETS[state.betIndex];
+  
+  const spinBtn = document.getElementById('spinBtn');
+  const bonusBtn = document.getElementById('bonusBtn');
+  const bet = BETS[state.betIndex];
+  
+  // Если не хватает на ставку — показываем бонус
+  if (state.balance < bet) {
+    spinBtn.disabled = true;
+    bonusBtn.classList.add('show');
+  } else {
+    spinBtn.disabled = state.spinning;
+    bonusBtn.classList.remove('show');
+  }
+  
+  // Автоматическая проверка на полное банкротство
+  if (state.balance === 0 && !state.spinning) {
+    setTimeout(showBrokeModal, 500);
+  }
+}
+
+function renderReels() {
+  state.reels.forEach((sym, i) => {
+    document.getElementById('reel' + i).querySelector('.symbol').textContent = sym;
+  });
+}
+
+function fmt(n) {
+  return Math.floor(n).toLocaleString('ru');
+}
+
+function changeBet(dir) {
+  if (state.spinning) return;
+  state.betIndex = Math.max(0, Math.min(BETS.length - 1, state.betIndex + dir));
+  playTone(400, 'sine', 0.05);
+  updateUI();
+}
+
+// ============================================================
+// БОНУС ЗА НИЩЕТУ
+// ============================================================
+function claimBonus() {
+  if (state.balance >= BETS[state.betIndex]) return;
+  
+  const bonus = 100;
+  state.balance += bonus;
+  
+  // Анимация
+  playTone(500, 'sine', 0.1);
+  setTimeout(() => playTone(700, 'sine', 0.1), 100);
+  setTimeout(() => playTone(900, 'sine', 0.2), 200);
+  spawnParticles(false);
+  
+  // Уведомление
+  showToast(`🎁 Бонус: +${bonus} 🪙`);
+  
+  updateUI();
+  save();
+}
+
+function showToast(text) {
+  const toast = document.createElement('div');
+  toast.style.cssText = `position:fixed; top:20px; left:50%; transform:translateX(-50%);
+    background:linear-gradient(135deg,#a06bff,#5be3ff); color:#fff;
+    padding:16px 32px; border-radius:14px; font-weight:900; font-size:18px;
+    z-index:9999; box-shadow:0 10px 40px rgba(160,107,255,.5);
+    animation:toastIn .3s ease;`;
+  toast.textContent = text;
+  document.body.appendChild(toast);
+  setTimeout(() => toast.remove(), 2500);
+}
+
+// ============================================================
+// МОДАЛКА БАНКРОТСТВА
+// ============================================================
+function showBrokeModal() {
+  if (state.balance > 0 || state.spinning) return;
+  document.getElementById('brokeModal').classList.add('show');
+}
+
+function closeBrokeModal() {
+  document.getElementById('brokeModal').classList.remove('show');
+}
+
+function resetGame() {
+  state.balance = START_BALANCE;
+  state.betIndex = 2;
+  state.jackpot = START_JACKPOT;
+  state.reels = ['🍒', '🍋', '🔔'];
+  save();
+  updateUI();
+  renderReels();
+  closeBrokeModal();
+  showToast('🎉 Игра начата заново!');
+}
+
+// ============================================================
+// ПРОКРУТКА
+// ============================================================
+function getRandomSymbol() {
+  const total = SYMBOLS.reduce((s, x) => s + x.weight, 0);
+  let r = Math.random() * total;
+  for (const s of SYMBOLS) {
+    r -= s.weight;
+    if (r <= 0) return s.emoji;
+  }
+  return SYMBOLS[0].emoji;
+}
+
+async function spin() {
+  if (state.spinning) return;
+  const bet = BETS[state.betIndex];
+  if (state.balance < bet) { updateUI(); return; }
+  
+  initAudio();
+  state.spinning = true;
+  state.balance -= bet;
+  state.jackpot += Math.floor(bet * 0.1);
+  updateUI();
+  save();
+  
+  const reelsEl = [0,1,2].map(i => document.getElementById('reel' + i));
+  reelsEl.forEach(r => {
+    r.classList.remove('win', 'jackpot');
+    r.classList.add('spinning');
+  });
+  
+  playTone(200, 'square', 0.1, 0.05);
+  
+  const results = [getRandomSymbol(), getRandomSymbol(), getRandomSymbol()];
+  
+  for (let i = 0; i < 3; i++) {
+    await sleep(400);
+    reelsEl[i].classList.remove('spinning');
+    reelsEl[i].querySelector('.symbol').textContent = results[i];
+    playTone(500 + i * 100, 'sine', 0.1);
+  }
+  
+  state.reels = results;
+  await sleep(300);
+  
+  checkWin(results, bet, reelsEl);
+  
+  state.spinning = false;
+  updateUI();
+  save();
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+function checkWin(results, bet, reelsEl) {
+  const [a, b, c] = results;
+  const symA = SYMBOLS.find(s => s.emoji === a);
+  const symB = SYMBOLS.find(s => s.emoji === b);
+  const symC = SYMBOLS.find(s => s.emoji === c);
+  
+  let win = 0;
+  let desc = '';
+  let isJackpot = false;
+  
+  if (a === JACKPOT_SYMBOL && b === JACKPOT_SYMBOL && c === JACKPOT_SYMBOL) {
+    win = state.jackpot;
+    desc = '🎉 ДЖЕКПОТ! Три семёрки!';
+    isJackpot = true;
+    state.jackpot = START_JACKPOT;
+  }
+  else if (a === b && b === c) {
+    win = bet * symA.mult3;
+    desc = `Три ${symA.name.toLowerCase()}а`;
+  }
+  else {
+    let mult2 = 0;
+    if (a === b) mult2 = symA.mult2;
+    else if (b === c) mult2 = symB.mult2;
+    else if (a === c) mult2 = symA.mult2;
+    
+    if (mult2 > 0) {
+      win = bet * mult2;
+      desc = 'Пара символов';
+    }
+  }
+  
+  if (win > 0) {
+    win = Math.floor(win);
+    state.balance += win;
+    
+    if (a === b && b === c) {
+      reelsEl.forEach(r => r.classList.add(isJackpot ? 'jackpot' : 'win'));
+    } else if (a === b) {
+      reelsEl[0].classList.add('win');
+      reelsEl[1].classList.add('win');
+    } else if (b === c) {
+      reelsEl[1].classList.add('win');
+      reelsEl[2].classList.add('win');
+    } else if (a === c) {
+      reelsEl[0].classList.add('win');
+      reelsEl[2].classList.add('win');
+    }
+    
+    playWinSound();
+    spawnParticles(isJackpot);
+    showWin(win, desc, isJackpot);
+  }
+}
+
+function showWin(amount, desc, isJackpot) {
+  document.getElementById('winTitle').textContent = isJackpot ? '🎉 ДЖЕКПОТ! 🎉' : 'ВЫИГРЫШ!';
+  document.getElementById('winAmount').textContent = '+' + fmt(amount);
+  document.getElementById('winDesc').textContent = desc;
+  document.getElementById('winModal').classList.add('show');
+}
+
+function closeModal() {
+  document.getElementById('winModal').classList.remove('show');
+}
+
+function spawnParticles(isJackpot) {
+  const emojis = isJackpot 
+    ? ['💰','💎','⭐','🎉','7️⃣','💵','🏆'] 
+    : ['⭐','✨','💫'];
+  const count = isJackpot ? 60 : 20;
+  
+  for (let i = 0; i < count; i++) {
+    setTimeout(() => {
+      const p = document.createElement('div');
+      p.className = 'particle';
+      p.textContent = emojis[Math.floor(Math.random() * emojis.length)];
+      p.style.left = (Math.random() * 100) + 'vw';
+      p.style.top = '100vh';
+      p.style.fontSize = (16 + Math.random() * 24) + 'px';
+      document.body.appendChild(p);
+      
+      const dur = 2000 + Math.random() * 1500;
+      const dx = (Math.random() - 0.5) * 300;
+      const rot = (Math.random() - 0.5) * 720;
+      p.animate([
+        { transform: 'translate(0, 0) rotate(0deg)', opacity: 1 },
+        { transform: `translate(${dx}px, -110vh) rotate(${rot}deg)`, opacity: 0 }
+      ], {
+        duration: dur,
+        easing: 'cubic-bezier(.2,.6,.4,1)'
+      }).onfinish = () => p.remove();
+    }, i * 30);
+  }
+}
+
+// Хоткеи
+window.addEventListener('keydown', e => {
+  if (e.code === 'Space') {
+    e.preventDefault();
+    if (!state.spinning && state.balance >= BETS[state.betIndex]) spin();
+  }
+  if (e.key === 'ArrowUp') changeBet(1);
+  if (e.key === 'ArrowDown') changeBet(-1);
+});
+
+document.addEventListener('click', initAudio, { once: true });
+
+// Стили для тоста
+const style = document.createElement('style');
+style.textContent = `@keyframes toastIn { from{transform:translate(-50%,-100px);opacity:0} to{transform:translate(-50%,0);opacity:1} }`;
+document.head.appendChild(style);
+
+load();
+</script>
+</body>
+</html>

@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<title>Drift Racer</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none}
+html,body{width:100vw;height:100vh;overflow:hidden;background:#0a0a1a;
+  font-family:-apple-system,'Segoe UI',Roboto,sans-serif;color:#fff;display:flex;justify-content:center}
+#game{position:relative;width:100%;max-width:600px;height:100vh;display:flex;flex-direction:column}
+canvas{flex:1;display:block;background:#1a1a2e;touch-action:none}
+
+/* HUD */
+.hud{position:absolute;top:16px;left:16px;right:16px;display:flex;justify-content:space-between;
+  pointer-events:none;z-index:5;gap:8px}
+.hud-box{background:rgba(0,0,0,.5);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.1);
+  border-radius:14px;padding:8px 16px;font-weight:800;text-align:center;min-width:80px;
+  box-shadow:0 8px 32px rgba(0,0,0,.3)}
+.hud-box .label{font-size:10px;color:#9aa0c0;letter-spacing:1px;margin-bottom:2px}
+.hud-box .value{font-size:20px;color:#5be3ff;text-shadow:0 0 10px rgba(91,227,255,.5)}
+.hud-box.coins .value{color:#ffd86b;text-shadow:0 0 10px rgba(255,216,107,.5)}
+.hud-box.score .value{color:#ff5b7f;text-shadow:0 0 10px rgba(255,91,127,.5)}
+
+/* Кнопка магазина */
+.shop-btn{position:absolute;top:80px;right:16px;width:60px;height:60px;border-radius:50%;
+  background:rgba(160,107,255,.2);border:2px solid #a06bff;backdrop-filter:blur(10px);
+  display:flex;justify-content:center;align-items:center;font-size:28px;cursor:pointer;
+  z-index:7;transition:transform .2s;box-shadow:0 0 20px rgba(160,107,255,.4)}
+.shop-btn:active{transform:scale(0.9);background:rgba(160,107,255,.5)}
+
+/* Индикатор дрифта */
+.drift-indicator{position:absolute;top:80px;left:50%;transform:translateX(-50%);
+  background:rgba(0,0,0,.6);border:2px solid #a06bff;border-radius:20px;
+  padding:8px 24px;font-size:24px;font-weight:900;color:#a06bff;
+  opacity:0;transition:opacity .2s;text-shadow:0 0 20px #a06bff;
+  box-shadow:0 0 30px rgba(160,107,255,.5);pointer-events:none;z-index:6}
+.drift-indicator.active{opacity:1;animation:pulseDrift .3s infinite alternate}
+@keyframes pulseDrift{from{transform:translateX(-50%) scale(1)}to{transform:translateX(-50%) scale(1.08)}}
+
+/* Кнопки */
+.controls{position:absolute;bottom:20px;left:0;right:0;display:flex;justify-content:space-between;
+  padding:0 20px;z-index:6;pointer-events:none}
+.ctrl-btn{width:90px;height:90px;border-radius:20px;background:rgba(160,107,255,.15);
+  border:2px solid rgba(160,107,255,.4);backdrop-filter:blur(10px);
+  display:flex;justify-content:center;align-items:center;font-size:36px;font-weight:900;
+  cursor:pointer;transition:transform .1s;pointer-events:auto}
+.ctrl-btn:active{transform:scale(.92);background:rgba(160,107,255,.4)}
+
+/* Магазин */
+#shopScreen{position:absolute;inset:0;background:rgba(10,10,26,.95);backdrop-filter:blur(10px);
+  display:none;flex-direction:column;justify-content:center;align-items:center;padding:30px;
+  z-index:50;text-align:center}
+#shopScreen.show{display:flex}
+#shopScreen h1{color:#a06bff;font-size:32px;margin-bottom:10px;text-shadow:0 0 20px rgba(160,107,255,.5)}
+#shopScreen p{margin-bottom:20px;font-size:16px}
+#shopScreen p b{color:#ffd86b}
+#shopList{width:100%;max-width:400px;display:flex;flex-direction:column;gap:10px;
+  margin-bottom:20px;max-height:60vh;overflow-y:auto;padding:5px}
+.shop-item{background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);
+  border-radius:14px;padding:14px;display:flex;align-items:center;gap:14px;text-align:left;
+  transition:0.2s}
+.shop-item:hover{border-color:rgba(160,107,255,0.5);background:rgba(160,107,255,0.1)}
+.shop-item .icon{font-size:24px;width:48px;height:48px;display:flex;justify-content:center;
+  align-items:center;background:rgba(160,107,255,0.15);border-radius:12px}
+.shop-item .info{flex:1}
+.shop-item .name{font-size:14px;font-weight:800;color:#fff}
+.shop-item .lvl{color:#5be3ff;font-size:12px;font-weight:700}
+.shop-item .desc{font-size:11px;color:#9aa0c0;margin-top:2px}
+.shop-item button{padding:10px 16px;border:none;border-radius:10px;font-size:12px;
+  font-weight:800;cursor:pointer;transition:0.2s}
+.shop-item button:hover:not(:disabled){filter:brightness(1.2)}
+.shop-item button:disabled{background:rgba(255,255,255,0.05) !important;color:#555 !important;
+  cursor:not-allowed}
+#shopScreen .close-btn{margin-top:10px;padding:16px 44px;border:none;border-radius:14px;font-size:16px;
+  font-weight:900;background:linear-gradient(135deg,#5be3ff,#5bff9d);color:#001;cursor:pointer;
+  transition:0.2s}
+#shopScreen .close-btn:hover{filter:brightness(1.15);transform:scale(1.03)}
+</style>
+</head>
+<body>
+
+<div id="game">
+  <canvas id="cv"></canvas>
+
+  <div class="hud">
+    <div class="hud-box score"><div class="label">СЧЁТ</div><div class="value" id="hScore">0</div></div>
+    <div class="hud-box coins"><div class="label">МОНЕТЫ</div><div class="value" id="hCoins">0</div></div>
+    <div class="hud-box"><div class="label">СКОРОСТЬ</div><div class="value" id="hSpeed">0</div></div>
+  </div>
+
+  <div class="shop-btn" id="btnShop">🛒</div>
+
+  <div class="drift-indicator" id="driftInd">+0</div>
+
+  <div class="controls">
+    <div class="ctrl-btn" id="btnLeft">◀</div>
+    <div class="ctrl-btn" id="btnRight">▶</div>
+  </div>
+
+  <div id="shopScreen">
+    <h1>🛒 ГАРАЖ</h1>
+    <p>Монеты: <b id="shopGold">0</b> 🪙</p>
+    <div id="shopList"></div>
+    <button class="close-btn" onclick="toggleShop()">ЗАКРЫТЬ</button>
+  </div>
+</div>
+
+<script>
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+let W, H;
+
+// Палитра для вражеских машин
+const ENEMY_COLORS = [
+  '#ff5b7f', '#ff9a5b', '#ffd86b', '#5bff9d', '#5be3ff', '#a06bff',
+  '#ff4d4d', '#4dff88', '#4da6ff', '#ff4dff', '#ffaa00', '#00d4ff'
+];
+
+const state = {
+  running: true,
+  coins: 0,
+  score: 0,
+  speed: 0,
+  maxSpeed: 400,
+  playerX: 0,
+  playerAngle: 0,
+  driftScore: 0,
+  keys: { left: false, right: false },
+  roadOffset: 0,
+  trackWidth: 0,
+  skidMarks: [],
+  coinsArray: [],
+  obstacles: [],
+  particles: [],
+  shopOpen: false,
+  upgrades: { engine: 0, grip: 0, magnet: 0 }
+};
+
+const UPG = {
+  engine: { name: 'Двигатель', icon: '⚙️', max: 10, base: 50, mult: 1.5, desc: '+10% макс. скорости' },
+  grip: { name: 'Сцепление', icon: '🛞', max: 10, base: 40, mult: 1.5, desc: '+15% к дрифту' },
+  magnet: { name: 'Магнит', icon: '🧲', max: 5, base: 80, mult: 1.8, desc: '+20% радиус сбора' }
+};
+
+function resize() {
+  W = cv.width = cv.parentElement.clientWidth;
+  H = cv.height = cv.parentElement.clientHeight;
+  state.trackWidth = W * 0.85;
+  state.playerX = W / 2;
+}
+window.addEventListener('resize', resize);
+resize();
+
+document.getElementById('btnShop').addEventListener('click', toggleShop);
+
+window.addEventListener('keydown', e => {
+  const k = e.key.toLowerCase();
+  if (k === 'arrowleft' || k === 'a' || k === 'ф') state.keys.left = true;
+  if (k === 'arrowright' || k === 'd' || k === 'в') state.keys.right = true;
+  if (k === 'b' || k === 'и') toggleShop();
+});
+window.addEventListener('keyup', e => {
+  const k = e.key.toLowerCase();
+  if (k === 'arrowleft' || k === 'a' || k === 'ф') state.keys.left = false;
+  if (k === 'arrowright' || k === 'd' || k === 'в') state.keys.right = false;
+});
+
+const btnL = document.getElementById('btnLeft');
+const btnR = document.getElementById('btnRight');
+function bindBtn(btn, side) {
+  btn.addEventListener('pointerdown', e => { e.preventDefault(); state.keys[side] = true; });
+  btn.addEventListener('pointerup', e => { e.preventDefault(); state.keys[side] = false; });
+  btn.addEventListener('pointerleave', () => state.keys[side] = false);
+  btn.addEventListener('pointercancel', () => state.keys[side] = false);
+}
+bindBtn(btnL, 'left');
+bindBtn(btnR, 'right');
+
+function toggleShop() {
+  state.shopOpen = !state.shopOpen;
+  document.getElementById('shopScreen').classList.toggle('show', state.shopOpen);
+  if (state.shopOpen) updateShopUI();
+}
+
+function updateShopUI() {
+  document.getElementById('shopGold').innerText = state.coins;
+  const list = document.getElementById('shopList');
+  list.innerHTML = '';
+  for (const key in UPG) {
+    const item = UPG[key];
+    const lvl = state.upgrades[key];
+    const cost = Math.floor(item.base * Math.pow(item.mult, lvl));
+    const canBuy = state.coins >= cost && lvl < item.max;
+    const div = document.createElement('div');
+    div.className = 'shop-item';
+    div.innerHTML = `
+      <div class="icon">${item.icon}</div>
+      <div class="info">
+        <div class="name">${item.name} <span class="lvl">Ур. ${lvl}/${item.max}</span></div>
+        <div class="desc">${item.desc}</div>
+      </div>
+      <button ${canBuy ? '' : 'disabled'} style="background:${canBuy ? '#a06bff' : 'rgba(255,255,255,0.05)'}; color:${canBuy ? '#fff' : '#555'};">
+        ${lvl >= item.max ? 'MAX' : cost + ' 🪙'}
+      </button>
+    `;
+    div.querySelector('button').onclick = () => {
+      if (canBuy) { state.coins -= cost; state.upgrades[key]++; updateShopUI(); updateHUD(); }
+    };
+    list.appendChild(div);
+  }
+}
+
+function updateHUD() {
+  document.getElementById('hCoins').textContent = state.coins;
+  document.getElementById('hScore').textContent = Math.floor(state.score);
+}
+
+function update(dt) {
+  if (state.shopOpen) return;
+
+  const maxSpeed = 400 + state.upgrades.engine * 40;
+  state.speed += (maxSpeed - state.speed) * dt * 2;
+  const scrollSpeed = state.speed * dt;
+  state.roadOffset = (state.roadOffset + scrollSpeed) % 40;
+  state.score += scrollSpeed * 0.05;
+
+  let steer = 0;
+  if (state.keys.left) steer -= 1;
+  if (state.keys.right) steer += 1;
+
+  const gripMult = 1 + state.upgrades.grip * 0.15;
+  const turnSpeed = 3.5 * gripMult;
+  state.playerAngle += steer * dt * turnSpeed;
+  state.playerAngle = Math.max(-0.8, Math.min(0.8, state.playerAngle));
+
+  if (steer === 0) state.playerAngle *= 0.9;
+
+  const moveSpeed = state.speed * dt * Math.sin(state.playerAngle);
+  state.playerX += moveSpeed;
+
+  const minX = W/2 - state.trackWidth/2 + 30;
+  const maxX = W/2 + state.trackWidth/2 - 30;
+  if (state.playerX < minX) { state.playerX = minX; state.speed *= 0.9; }
+  if (state.playerX > maxX) { state.playerX = maxX; state.speed *= 0.9; }
+
+  const driftIntensity = Math.abs(state.playerAngle) * (state.speed / maxSpeed);
+  if (driftIntensity > 0.3) {
+    state.driftScore += driftIntensity * state.speed * dt * 0.5;
+    const ind = document.getElementById('driftInd');
+    ind.classList.add('active');
+    ind.textContent = `+${Math.floor(state.driftScore)}`;
+    
+    if (Math.random() < 0.6) {
+      state.particles.push({
+        x: state.playerX + (Math.random() - 0.5) * 30 - state.playerAngle * 40,
+        y: H - 110,
+        vx: (Math.random() - 0.5) * 100,
+        vy: 100 + Math.random() * 50,
+        life: 0.5, size: 5 + Math.random() * 10,
+        color: 'rgba(255,255,255,0.6)'
+      });
+    }
+    if (Math.random() < 0.8) {
+      state.skidMarks.push({
+        x: state.playerX + (Math.random() - 0.5) * 15,
+        y: H - 100,
+        angle: state.playerAngle,
+        life: 2
+      });
+    }
+  } else {
+    if (state.driftScore > 10) {
+      state.coins += Math.floor(state.driftScore / 20);
+      updateHUD();
+    }
+    state.driftScore = 0;
+    document.getElementById('driftInd').classList.remove('active');
+  }
+
+  // --- Спавн врагов (исправлен) ---
+  if (Math.random() < dt * 1.2) {
+    const laneWidth = (state.trackWidth - 60) / 3;
+    const lane = Math.floor(Math.random() * 3);
+    const baseX = W/2 - state.trackWidth/2 + 30 + lane * laneWidth + laneWidth/2;
+    
+    if (Math.random() < 0.4) {
+      // Проверяем, есть ли уже машина в этой полосе близко к краю
+      const tooClose = state.obstacles.some(o => 
+        Math.abs(o.x - baseX) < 50 && o.y < 100
+      );
+      
+      if (!tooClose) {
+        state.obstacles.push({
+          x: baseX, y: -100, w: 44, h: 76,
+          speed: 200 + Math.random() * 150,
+          color: ENEMY_COLORS[Math.floor(Math.random() * ENEMY_COLORS.length)] // Случайный цвет!
+        });
+      }
+    }
+    
+    if (Math.random() < 0.8) {
+      state.coinsArray.push({
+        x: baseX + (Math.random() - 0.5) * 30,
+        y: -100, r: 12
+      });
+    }
+  }
+
+  // Движение объектов
+  for (let i = state.obstacles.length - 1; i >= 0; i--) {
+    const o = state.obstacles[i];
+    o.y += (state.speed - o.speed) * dt;
+    if (o.y > H + 100) { state.obstacles.splice(i, 1); continue; }
+    
+    if (Math.abs(state.playerX - (o.x + o.w/2)) < 35 && Math.abs((H - 120) - (o.y + o.h/2)) < 50) {
+      state.speed *= 0.5; state.driftScore = 0;
+      document.getElementById('driftInd').classList.remove('active');
+      for (let j = 0; j < 10; j++) {
+        state.particles.push({
+          x: state.playerX, y: H - 100,
+          vx: (Math.random() - 0.5) * 300, vy: (Math.random() - 0.5) * 300,
+          life: 0.5, size: 6, color: '#ff5b7f'
+        });
+      }
+    }
+  }
+
+  // Монеты
+  const magnetRange = 60 + state.upgrades.magnet * 40;
+  for (let i = state.coinsArray.length - 1; i >= 0; i--) {
+    const c = state.coinsArray[i];
+    c.y += state.speed * dt;
+    const dx = state.playerX - c.x, dy = (H - 120) - c.y;
+    const dist = Math.hypot(dx, dy);
+    if (dist < magnetRange) { c.x += (dx / dist) * 500 * dt; c.y += (dy / dist) * 500 * dt; }
+    if (dist < 40) { state.coins++; updateHUD(); state.coinsArray.splice(i, 1); continue; }
+    if (c.y > H + 100) state.coinsArray.splice(i, 1);
+  }
+
+  for (let i = state.skidMarks.length - 1; i >= 0; i--) {
+    const s = state.skidMarks[i];
+    s.y += state.speed * dt; s.life -= dt * 0.5;
+    if (s.life <= 0 || s.y > H + 50) state.skidMarks.splice(i, 1);
+  }
+  for (let i = state.particles.length - 1; i >= 0; i--) {
+    const p = state.particles[i];
+    p.x += p.vx * dt; p.y += p.vy * dt; p.life -= dt;
+    if (p.life <= 0) state.particles.splice(i, 1);
+  }
+
+  document.getElementById('hSpeed').textContent = Math.floor(state.speed / 5) + ' км/ч';
+}
+
+function draw() {
+  ctx.fillStyle = '#0f171e';
+  ctx.fillRect(0, 0, W, H);
+
+  const trackX = W/2 - state.trackWidth/2;
+
+  const roadGrd = ctx.createLinearGradient(trackX, 0, trackX + state.trackWidth, 0);
+  roadGrd.addColorStop(0, '#111118'); roadGrd.addColorStop(0.5, '#22222e'); roadGrd.addColorStop(1, '#111118');
+  ctx.fillStyle = roadGrd; ctx.fillRect(trackX, 0, state.trackWidth, H);
+
+  ctx.fillStyle = '#a06bff'; ctx.shadowBlur = 20; ctx.shadowColor = '#a06bff';
+  ctx.fillRect(trackX, 0, 6, H); ctx.fillRect(trackX + state.trackWidth - 6, 0, 6, H);
+  ctx.shadowBlur = 0;
+
+  ctx.fillStyle = 'rgba(255,255,255,0.4)';
+  for (let y = -40 + state.roadOffset; y < H; y += 40) {
+    ctx.fillRect(W/2 - 2, y, 4, 20);
+    ctx.fillRect(trackX + state.trackWidth * 0.25 - 2, y, 2, 15);
+    ctx.fillRect(trackX + state.trackWidth * 0.75 - 2, y, 2, 15);
+  }
+
+  state.skidMarks.forEach(s => {
+    ctx.fillStyle = `rgba(0,0,0,${s.life / 2})`;
+    ctx.save(); ctx.translate(s.x, s.y); ctx.rotate(s.angle);
+    ctx.fillRect(-8, -15, 16, 30); ctx.restore();
+  });
+
+  state.particles.forEach(p => {
+    ctx.globalAlpha = p.life * 2; ctx.fillStyle = p.color;
+    ctx.beginPath(); ctx.arc(p.x, p.y, p.size * (1 + (0.5 - p.life)), 0, Math.PI * 2); ctx.fill();
+  });
+  ctx.globalAlpha = 1;
+
+  state.coinsArray.forEach(c => {
+    ctx.shadowBlur = 15; ctx.shadowColor = '#ffd86b'; ctx.fillStyle = '#ffd86b';
+    ctx.beginPath(); ctx.arc(c.x, c.y, c.r, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0;
+    ctx.fillStyle = '#000'; ctx.font = 'bold 12px sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('$', c.x, c.y + 1);
+  });
+
+  // Враги (с цветами и тенями)
+  state.obstacles.forEach(o => {
+    // Тень
+    ctx.fillStyle = 'rgba(0,0,0,0.4)';
+    ctx.beginPath(); ctx.roundRect(o.x + 4, o.y + 4, o.w, o.h, 8); ctx.fill();
+    
+    // Кузов
+    ctx.fillStyle = o.color;
+    ctx.beginPath(); ctx.roundRect(o.x, o.y, o.w, o.h, 8); ctx.fill();
+    
+    // Блик
+    ctx.fillStyle = 'rgba(255,255,255,0.3)';
+    ctx.beginPath(); ctx.roundRect(o.x + 4, o.y + 4, o.w - 8, o.h/2, 6); ctx.fill();
+    
+    // Стёкла
+    ctx.fillStyle = 'rgba(91,227,255,.8)';
+    ctx.beginPath(); ctx.roundRect(o.x + 6, o.y + 10, o.w - 12, 15, 4); ctx.fill();
+    ctx.beginPath(); ctx.roundRect(o.x + 6, o.y + o.h - 25, o.w - 12, 15, 4); ctx.fill();
+  });
+
+  // Игрок
+  const px = state.playerX, py = H - 120;
+  
+  ctx.save();
+  ctx.translate(px, py);
+  ctx.rotate(state.playerAngle);
+  
+  ctx.fillStyle = 'rgba(0,0,0,0.5)';
+  ctx.beginPath(); ctx.ellipse(0, 25, 30, 12, 0, 0, Math.PI*2); ctx.fill();
+
+  const carGrd = ctx.createLinearGradient(-25, -40, 25, 40);
+  carGrd.addColorStop(0, '#5be3ff'); carGrd.addColorStop(1, '#5bff9d');
+  ctx.fillStyle = carGrd;
+  ctx.beginPath(); ctx.roundRect(-22, -40, 44, 80, 12); ctx.fill();
+  
+  ctx.fillStyle = 'rgba(0,0,0,.6)';
+  ctx.beginPath(); ctx.roundRect(-16, -28, 32, 20, 6); ctx.fill();
+  ctx.beginPath(); ctx.roundRect(-16, 15, 32, 16, 6); ctx.fill();
+  
+  ctx.fillStyle = '#fff'; ctx.shadowBlur = 15; ctx.shadowColor = '#fff';
+  ctx.fillRect(-18, -40, 12, 5); ctx.fillRect(6, -40, 12, 5);
+  ctx.shadowBlur = 0;
+  
+  ctx.restore();
+}
+
+let lastTime = performance.now();
+function loop(t) {
+  const dt = Math.min((t - lastTime) / 1000, 0.05);
+  lastTime = t;
+  update(dt);
+  draw();
+  requestAnimationFrame(loop);
+}
+
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
