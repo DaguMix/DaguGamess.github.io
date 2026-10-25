@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<title>Neon Pong</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none}
+html,body{width:100vw;height:100vh;overflow:hidden;background:#0a0a12;
+  font-family:-apple-system,'Segoe UI',Roboto,sans-serif;color:#fff;
+  display:flex;justify-content:center;align-items:center}
+
+#app{position:relative;width:100%;max-width:1000px;height:100vh;display:flex;flex-direction:column;padding:16px}
+
+.hud{display:flex;justify-content:center;align-items:center;gap:40px;padding:10px 0}
+.score-box{font-size:48px;font-weight:900;color:#555;text-shadow:0 0 20px transparent;transition:0.3s}
+.score-box.player{color:#5be3ff;text-shadow:0 0 20px rgba(91,227,255,0.8)}
+.score-box.ai{color:#ff5b7f;text-shadow:0 0 20px rgba(255,91,127,0.8)}
+.divider{width:2px;height:40px;background:#333}
+
+.canvas-wrap{flex:1;position:relative;display:flex;justify-content:center;align-items:center}
+canvas{background:#0f111a;border-radius:20px;box-shadow:inset 0 0 50px rgba(0,0,0,0.8), 0 0 30px rgba(160,107,255,0.2);border:1px solid rgba(255,255,255,0.05);max-width:100%;max-height:100%}
+
+.overlay{position:absolute;inset:0;background:rgba(10,10,26,0.9);backdrop-filter:blur(10px);
+  display:none;flex-direction:column;justify-content:center;align-items:center;z-index:10;text-align:center;padding:20px}
+.overlay.show{display:flex;animation:fadeIn 0.3s ease}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+
+.overlay h1{font-size:40px;margin-bottom:10px;font-weight:900;letter-spacing:2px;
+  background:linear-gradient(90deg,#5be3ff,#5bff9d);
+  -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.overlay h1.dead{background:linear-gradient(90deg,#ff5b7f,#ffd86b);
+  -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.overlay p{color:#9aa0c0;font-size:16px;margin-bottom:20px;line-height:1.6}
+
+.diff-btns{display:flex;flex-direction:column;gap:10px;width:100%;max-width:250px;margin-bottom:20px}
+.diff-btn{padding:14px;border:none;border-radius:12px;font-size:16px;font-weight:800;
+  font-family:inherit;cursor:pointer;transition:0.2s;background:rgba(255,255,255,0.05);color:#fff;border:1px solid rgba(255,255,255,0.1)}
+.diff-btn:hover{transform:scale(1.02)}
+.diff-btn.easy:hover{background:rgba(91,255,157,0.2);border-color:#5bff9d;color:#5bff9d}
+.diff-btn.normal:hover{background:rgba(91,227,255,0.2);border-color:#5be3ff;color:#5be3ff}
+.diff-btn.hard:hover{background:rgba(255,91,127,0.2);border-color:#ff5b7f;color:#ff5b7f}
+
+.back-hub-btn {
+  position: fixed; top: 20px; left: 20px; z-index: 2147483647;
+  background: linear-gradient(135deg, #a06bff, #6b3fcf); color: #fff; text-decoration: none;
+  font-weight: 900; font-size: 16px; padding: 12px 24px; border-radius: 30px;
+  border: 3px solid #fff; box-shadow: 0 0 20px rgba(160,107,255,0.8);
+  display: flex; align-items: center; gap: 8px; font-family: inherit;
+  animation: pulseBtn 1.5s infinite; transition: transform 0.2s;
+}
+.back-hub-btn:hover { transform: scale(1.1); background: linear-gradient(135deg, #b07cff, #7b4fdf); }
+@keyframes pulseBtn {
+  0% { box-shadow: 0 0 0 0 rgba(160, 107, 255, 0.8); }
+  70% { box-shadow: 0 0 0 15px rgba(160, 107, 255, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(160, 107, 255, 0); }
+}
+</style>
+</head>
+<body>
+
+<a href="index.html" class="back-hub-btn">🏠 В Хаб</a>
+
+<div id="app">
+  <div class="hud">
+    <div class="score-box player" id="scorePlayer">0</div>
+    <div class="divider"></div>
+    <div class="score-box ai" id="scoreAI">0</div>
+  </div>
+
+  <div class="canvas-wrap">
+    <canvas id="cv"></canvas>
+
+    <div class="overlay show" id="startScreen">
+      <h1>NEON PONG</h1>
+      <p>Выбери сложность</p>
+      <div class="diff-btns">
+        <button class="diff-btn easy" onclick="startGame('easy')">😊 Легко</button>
+        <button class="diff-btn normal" onclick="startGame('normal')">🔥 Нормально</button>
+        <button class="diff-btn hard" onclick="startGame('hard')">💀 Хардкор</button>
+      </div>
+    </div>
+
+    <div class="overlay" id="gameOverScreen">
+      <h1 class="dead" id="gameOverTitle">ВЫ ПРОИГРАЛИ</h1>
+      <p id="gameOverText">Компьютер оказался быстрее...</p>
+      <button onclick="showStartScreen()" style="padding:16px 48px; border:none; border-radius:14px; font-size:18px; font-weight:900; background:linear-gradient(135deg,#5be3ff,#5bff9d); color:#001; cursor:pointer; margin-top:20px;">В МЕНЮ</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+const GAME_W = 800;
+const GAME_H = 600;
+
+// --- НАСТРОЙКИ СЛОЖНОСТИ ---
+// Хардкор: Мяч летит как пуля, ИИ почти не ошибается, ракетка ИИ узкая.
+const DIFFICULTY = {
+  easy:   { ballSpeed: 350, aiSpeed: 180, aiError: 250, paddleH: 120, maxScore: 5 },
+  normal: { ballSpeed: 450, aiSpeed: 270, aiError: 140, paddleH: 100, maxScore: 7 },
+  hard:   { ballSpeed: 650, aiSpeed: 650, aiError: 10,  paddleH: 65,  maxScore: 11 }
+};
+
+const state = {
+  running: false,
+  playerScore: 0,
+  aiScore: 0,
+  maxScore: 7,
+  countdown: 0,
+  
+  player: { y: GAME_H/2, w: 15, h: 100, speed: 600, targetY: GAME_H/2 },
+  ai: { y: GAME_H/2, w: 15, h: 100, speed: 300, targetY: GAME_H/2, error: 50, hasPredicted: false },
+  ball: { x: GAME_W/2, y: GAME_H/2, r: 10, vx: 0, vy: 0, baseSpeed: 400, trail: [] },
+  keys: { up: false, down: false },
+  particles: []
+};
+
+// --- ЗВУКИ ---
+let audioCtx = null;
+function initAudio() { if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+function playTone(freq, type='square', dur=0.05, vol=0.1) {
+  if (!audioCtx) return;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = type;
+  osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+  gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
+  osc.connect(gain); gain.connect(audioCtx.destination);
+  osc.start(); osc.stop(audioCtx.currentTime + dur);
+}
+
+// --- РАЗМЕРЫ ---
+function resize() {
+  const wrap = cv.parentElement.getBoundingClientRect();
+  const scale = Math.min(wrap.width / GAME_W, wrap.height / GAME_H);
+  cv.width = GAME_W;
+  cv.height = GAME_H;
+  cv.style.width = (GAME_W * scale) + 'px';
+  cv.style.height = (GAME_H * scale) + 'px';
+}
+window.addEventListener('resize', resize);
+resize();
+
+// --- УПРАВЛЕНИЕ ---
+function handleMove(clientY) {
+  const rect = cv.getBoundingClientRect();
+  const y = clientY - rect.top;
+  const scale = rect.height / GAME_H;
+  state.player.targetY = y / scale;
+}
+
+document.addEventListener('mousemove', (e) => { if (state.running) handleMove(e.clientY); });
+document.addEventListener('touchmove', (e) => { if (state.running) { e.preventDefault(); handleMove(e.touches[0].clientY); } }, {passive: false});
+document.addEventListener('touchstart', (e) => { if (state.running) handleMove(e.touches[0].clientY); }, {passive: false});
+
+window.addEventListener('keydown', e => {
+  if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'ц') state.keys.up = true;
+  if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'ы') state.keys.down = true;
+});
+window.addEventListener('keyup', e => {
+  if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'ц') state.keys.up = false;
+  if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'ы') state.keys.down = false;
+});
+
+// --- ИГРА ---
+function startGame(diff) {
+  initAudio();
+  document.getElementById('startScreen').classList.remove('show');
+  document.getElementById('gameOverScreen').classList.remove('show');
+  
+  const cfg = DIFFICULTY[diff];
+  state.playerScore = 0;
+  state.aiScore = 0;
+  state.maxScore = cfg.maxScore;
+  state.player.h = cfg.paddleH;
+  state.ai.h = cfg.paddleH;
+  state.ai.speed = cfg.aiSpeed;
+  state.ai.error = cfg.aiError;
+  state.ball.baseSpeed = cfg.ballSpeed;
+  
+  state.player.y = GAME_H/2;
+  state.player.targetY = GAME_H/2;
+  state.ai.y = GAME_H/2;
+  state.ai.targetY = GAME_H/2;
+  state.running = true;
+  
+  resetBall();
+  updateScoreUI();
+}
+
+function showStartScreen() {
+  state.running = false;
+  document.getElementById('gameOverScreen').classList.remove('show');
+  document.getElementById('startScreen').classList.add('show');
+}
+
+function resetBall() {
+  state.ball.x = GAME_W/2;
+  state.ball.y = GAME_H/2;
+  state.ball.vx = 0;
+  state.ball.vy = 0;
+  state.ball.trail = [];
+  state.countdown = 1.5;
+  state.ai.hasPredicted = false;
+}
+
+function updateScoreUI() {
+  document.getElementById('scorePlayer').textContent = state.playerScore;
+  document.getElementById('scoreAI').textContent = state.aiScore;
+}
+
+function spawnParticles(x, y, color) {
+  for(let i=0; i<8; i++) {
+    state.particles.push({
+      x, y,
+      vx: (Math.random() - 0.5) * 400,
+      vy: (Math.random() - 0.5) * 400,
+      life: 1, color
+    });
+  }
+}
+
+function update(dt) {
+  if (!state.running) return;
+
+  if (state.countdown > 0) {
+    state.countdown -= dt;
+    if (state.countdown <= 0) {
+      const angle = (Math.random() * Math.PI / 2) - (Math.PI / 4);
+      const dir = Math.random() > 0.5 ? 1 : -1;
+      state.ball.vx = Math.cos(angle) * state.ball.baseSpeed * dir;
+      state.ball.vy = Math.sin(angle) * state.ball.baseSpeed;
+      playTone(800, 'sine', 0.1);
+    }
+    return;
+  }
+
+  // Движение игрока
+  if (state.keys.up) state.player.targetY -= state.player.speed * dt;
+  if (state.keys.down) state.player.targetY += state.player.speed * dt;
+  state.player.y += (state.player.targetY - state.player.y) * 15 * dt;
+  state.player.y = Math.max(state.player.h/2, Math.min(GAME_H - state.player.h/2, state.player.y));
+
+  // --- ИИ ---
+  if (state.ball.vx > 0 && !state.ai.hasPredicted) {
+    state.ai.hasPredicted = true;
+    
+    const timeToReach = (GAME_W - 40 - state.ball.x) / state.ball.vx;
+    let predictedY = state.ball.y + state.ball.vy * timeToReach;
+    
+    const error = (Math.random() - 0.5) * state.ai.error;
+    state.ai.targetY = predictedY + error;
+  } 
+  else if (state.ball.vx < 0) {
+    state.ai.hasPredicted = false;
+    state.ai.targetY = GAME_H / 2;
+  }
+
+  const aiDiff = state.ai.targetY - state.ai.y;
+  if (Math.abs(aiDiff) > 5) {
+    state.ai.y += Math.sign(aiDiff) * state.ai.speed * dt;
+  }
+  state.ai.y = Math.max(state.ai.h/2, Math.min(GAME_H - state.ai.h/2, state.ai.y));
+
+  // Мяч
+  const b = state.ball;
+  b.x += b.vx * dt;
+  b.y += b.vy * dt;
+
+  b.trail.push({x: b.x, y: b.y});
+  if (b.trail.length > 15) b.trail.shift();
+
+  if (b.y - b.r <= 0) { b.y = b.r; b.vy *= -1; playTone(300, 'sine', 0.05); }
+  if (b.y + b.r >= GAME_H) { b.y = GAME_H - b.r; b.vy *= -1; playTone(300, 'sine', 0.05); }
+
+  // Коллизия с игроком
+  const pX = 40;
+  if (b.x - b.r <= pX + state.player.w/2 && b.x > pX && b.vx < 0) {
+    if (b.y > state.player.y - state.player.h/2 && b.y < state.player.y + state.player.h/2) {
+      b.x = pX + state.player.w/2 + b.r;
+      b.vx = Math.abs(b.vx) * 1.05;
+      const hitPos = (b.y - state.player.y) / (state.player.h/2);
+      b.vy = hitPos * b.baseSpeed * 0.8;
+      playTone(600, 'square', 0.05);
+      spawnParticles(b.x, b.y, '#5be3ff');
+      state.ai.hasPredicted = false; 
+    }
+  }
+
+  // Коллизия с ИИ
+  const aX = GAME_W - 40;
+  if (b.x + b.r >= aX - state.ai.w/2 && b.x < aX && b.vx > 0) {
+    if (b.y > state.ai.y - state.ai.h/2 && b.y < state.ai.y + state.ai.h/2) {
+      b.x = aX - state.ai.w/2 - b.r;
+      b.vx = -Math.abs(b.vx) * 1.05;
+      const hitPos = (b.y - state.ai.y) / (state.ai.h/2);
+      b.vy = hitPos * b.baseSpeed * 0.8;
+      playTone(400, 'square', 0.05);
+      spawnParticles(b.x, b.y, '#ff5b7f');
+    }
+  }
+
+  const currentSpeed = Math.hypot(b.vx, b.vy);
+  if (currentSpeed > state.ball.baseSpeed * 2) {
+    b.vx = (b.vx / currentSpeed) * state.ball.baseSpeed * 2;
+    b.vy = (b.vy / currentSpeed) * state.ball.baseSpeed * 2;
+  }
+
+  if (b.x < 0) {
+    state.aiScore++;
+    playTone(200, 'sawtooth', 0.3);
+    updateScoreUI();
+    checkWin();
+  } else if (b.x > GAME_W) {
+    state.playerScore++;
+    playTone(800, 'sawtooth', 0.3);
+    updateScoreUI();
+    checkWin();
+  }
+
+  for(let i = state.particles.length - 1; i >= 0; i--) {
+    const p = state.particles[i];
+    p.x += p.vx * dt; p.y += p.vy * dt; p.life -= dt * 2;
+    if (p.life <= 0) state.particles.splice(i, 1);
+  }
+}
+
+function checkWin() {
+  if (state.playerScore >= state.maxScore) {
+    state.running = false;
+    document.getElementById('gameOverTitle').textContent = "ПОБЕДА!";
+    document.getElementById('gameOverTitle').className = "";
+    document.getElementById('gameOverText').textContent = `Вы обыграли компьютер со счетом ${state.maxScore}:${state.aiScore}`;
+    document.getElementById('gameOverScreen').classList.add('show');
+  } else if (state.aiScore >= state.maxScore) {
+    state.running = false;
+    document.getElementById('gameOverTitle').textContent = "ВЫ ПРОИГРАЛИ";
+    document.getElementById('gameOverTitle').className = "dead";
+    document.getElementById('gameOverText').textContent = `Компьютер обыграл вас со счетом ${state.maxScore}:${state.playerScore}`;
+    document.getElementById('gameOverScreen').classList.add('show');
+  } else {
+    resetBall();
+  }
+}
+
+function draw() {
+  ctx.fillStyle = '#0f111a';
+  ctx.fillRect(0, 0, GAME_W, GAME_H);
+
+  ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+  ctx.lineWidth = 4;
+  ctx.setLineDash([15, 20]);
+  ctx.beginPath(); ctx.moveTo(GAME_W/2, 0); ctx.lineTo(GAME_W/2, GAME_H); ctx.stroke();
+  ctx.setLineDash([]);
+
+  if (state.running && state.countdown <= 0) {
+    state.ball.trail.forEach((t, i) => {
+      ctx.fillStyle = `rgba(255,255,255,${i / state.ball.trail.length * 0.4})`;
+      ctx.beginPath(); ctx.arc(t.x, t.y, state.ball.r * (i / state.ball.trail.length), 0, Math.PI*2); ctx.fill();
+    });
+  }
+
+  ctx.shadowBlur = 20; ctx.shadowColor = '#5be3ff';
+  ctx.fillStyle = '#5be3ff';
+  ctx.beginPath();
+  ctx.roundRect(40 - state.player.w/2, state.player.y - state.player.h/2, state.player.w, state.player.h, 8);
+  ctx.fill();
+
+  ctx.shadowColor = '#ff5b7f';
+  ctx.fillStyle = '#ff5b7f';
+  ctx.beginPath();
+  ctx.roundRect(GAME_W - 40 - state.ai.w/2, state.ai.y - state.ai.h/2, state.ai.w, state.ai.h, 8);
+  ctx.fill();
+
+  ctx.shadowBlur = 25; ctx.shadowColor = '#fff';
+  ctx.fillStyle = '#fff';
+  ctx.beginPath();
+  ctx.arc(state.ball.x, state.ball.y, state.ball.r, 0, Math.PI*2);
+  ctx.fill();
+  ctx.shadowBlur = 0;
+
+  if (state.countdown > 0 && state.running) {
+    ctx.fillStyle = 'rgba(255,255,255,0.8)';
+    ctx.font = 'bold 60px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    const count = Math.ceil(state.countdown);
+    ctx.fillText(count, GAME_W/2, GAME_H/2 - 50);
+    ctx.font = '20px sans-serif';
+    ctx.fillStyle = '#9aa0c0';
+    ctx.fillText('Приготовься...', GAME_W/2, GAME_H/2 + 20);
+  }
+
+  state.particles.forEach(p => {
+    ctx.fillStyle = p.color;
+    ctx.globalAlpha = Math.max(0, p.life);
+    ctx.beginPath(); ctx.arc(p.x, p.y, 4 * p.life, 0, Math.PI*2); ctx.fill();
+  });
+  ctx.globalAlpha = 1;
+}
+
+let lastTime = performance.now();
+function loop(time) {
+  const dt = Math.min((time - lastTime) / 1000, 0.05);
+  lastTime = time;
+  
+  update(dt);
+  draw();
+  requestAnimationFrame(loop);
+}
+
+requestAnimationFrame(loop);
+</script>
+<script src="back.js"></script>
+</body>
+</html>
