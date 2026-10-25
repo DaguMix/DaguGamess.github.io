@@ -52,7 +52,7 @@ body::before { content:''; position:fixed; inset:0; pointer-events:none; z-index
 
 .category-tabs { display:flex; gap:10px; overflow-x:auto; padding-bottom:5px; scrollbar-width:none; }
 .category-tabs::-webkit-scrollbar { display:none; }
-.cat-btn { padding:8px 20px; border-radius:20px; background:var(--card-bg); border:1px solid var(--card-border); color:var(--text-muted); font-weight:700; cursor:pointer; transition:.2s; white-space:nowrap; }
+.cat-btn { padding:8px 20px; border-radius:20px; background:var(--card-bg); border:1px solid var(--card-border); color:var(--text-muted); font-weight:700; cursor:pointer; transition:.2s; white-space:nowrap; font-size:14px; }
 .cat-btn:hover { border-color:var(--accent); color:var(--text); }
 .cat-btn.active { background:var(--accent); border-color:var(--accent); color:#fff; box-shadow:0 5px 15px rgba(160,107,255,.4); }
 
@@ -128,30 +128,25 @@ body::before { content:''; position:fixed; inset:0; pointer-events:none; z-index
   </div>
 </div>
 
-<!-- Поиск и Фильтры -->
 <div class="filters-section">
   <div class="search-box">
     <input type="text" id="searchInput" placeholder="🔍 Поиск игры по названию или описанию...">
   </div>
   <div class="category-tabs" id="categoryTabs">
-    <!-- Кнопки генерируются в JS -->
   </div>
 </div>
 
 <div class="game-list" id="gameList"></div>
 
-<!-- Модалка Аватарки -->
 <div class="modal" id="modalAvatar">
   <div class="modal-box">
     <h2>Выбери аватар</h2>
     <div class="avatar-grid" id="avatarGrid">
-      <!-- Генерируется в JS -->
     </div>
     <button onclick="closeModal('modalAvatar')">Закрыть</button>
   </div>
 </div>
 
-<!-- Модалка Достижения -->
 <div class="modal" id="modalAch">
   <div class="modal-box">
     <h2>🏅 Достижения</h2>
@@ -160,7 +155,6 @@ body::before { content:''; position:fixed; inset:0; pointer-events:none; z-index
   </div>
 </div>
 
-<!-- Модалка Рекорды -->
 <div class="modal" id="modalLb">
   <div class="modal-box">
     <h2>🏆 Таблица лидеров</h2>
@@ -170,7 +164,6 @@ body::before { content:''; position:fixed; inset:0; pointer-events:none; z-index
 </div>
 
 <script>
-// --- Данные игр (добавлены категории) ---
 const GAMES = [
   { id: 'tap', file: 'tap.html', title: 'Кликер', emoji: '💎', category: 'tycoon', tag: 'TAP', desc: 'Тапай монету и качай улучшения.' },
   { id: 'drift', file: 'drift.html', title: 'Дрифт', emoji: '🏎️', category: 'race', tag: 'RACE', desc: 'Дрифтуй и качай машины.' },
@@ -182,7 +175,8 @@ const GAMES = [
   { id: 'gibdd', file: 'gibdd.html', title: 'ГИБДД Рулетка', emoji: '🚓', category: 'casino', tag: 'LUCK', desc: 'Крути номера, собирай блатные и качай удачу.' },
   { id: 'slots', file: 'slots.html', title: 'Казик 777', emoji: '🎰', category: 'casino', tag: 'CASINO', desc: 'Крути барабаны, лови джекпот и умножай баланс.' },
   { id: 'rogue', file: 'rogue.html', title: 'Исследуй подземелье', emoji: '🗡️', category: 'rpg', tag: 'ROGUELIKE', desc: 'Сражайся с монстрами и ищи сокровища.' },
-  { id: 'geo', file: 'geo.html', title: 'Тест на знание Европы и Азии', emoji: '🌍', category: 'quiz', tag: 'QUIZ', desc: 'Проверь свои знания географии.' }
+  { id: 'geo', file: 'geo.html', title: 'Тест на знание Европы и Азии', emoji: '🌍', category: 'quiz', tag: 'QUIZ', desc: 'Проверь свои знания географии.' },
+  { id: 'pong', file: 'pong.html', title: 'Пинг-Понг', emoji: '🏓', category: 'arcade', tag: 'PONG', desc: 'Классический пинг-понг против ИИ.' }
 ];
 
 const CATEGORIES = [
@@ -200,11 +194,10 @@ const CATEGORIES = [
 
 const AVAILABLE_AVATARS = ['👤', '🐱', '🐶', '🦊', '🐼', '🐸', '👽', '🤖', '👻', '😎', '🧙‍♂️', '🦸‍♂️', '🦹‍♂️', '🥷', '💀', '🎃'];
 
-// --- Состояние ---
 let profile = JSON.parse(localStorage.getItem('hub_profile')) || {
   name: 'Игрок', xp: 0, lvl: 1, theme: 'dark', achievements: [], avatar: '👤'
 };
-if (!profile.avatar) profile.avatar = '👤'; // Защита для старых профилей
+if (!profile.avatar) profile.avatar = '👤';
 
 let currentCategory = 'all';
 let searchQuery = '';
@@ -218,7 +211,6 @@ const ALL_ACH = [
   { id: 'racer_1000', name: 'Гонщик', desc: 'Проехать 1000 метров в Гонках', icon: '🏁' }
 ];
 
-// --- Инициализация UI ---
 function initCategoryTabs() {
   const container = document.getElementById('categoryTabs');
   container.innerHTML = '';
@@ -253,7 +245,6 @@ function initAvatarModal() {
   });
 }
 
-// --- Рендер игр ---
 function renderGames() {
   const list = document.getElementById('gameList');
   list.innerHTML = '';
@@ -288,7 +279,6 @@ function renderGames() {
   });
 }
 
-// --- Обновление UI ---
 function updateUI() {
   document.documentElement.setAttribute('data-theme', profile.theme);
   document.getElementById('avatar').textContent = profile.avatar;
@@ -303,7 +293,6 @@ function updateUI() {
   renderGames();
 }
 
-// --- Достижения ---
 function unlockAch(id) {
   if (profile.achievements.includes(id)) return;
   profile.achievements.push(id);
@@ -337,7 +326,6 @@ function renderAchievements() {
   });
 }
 
-// --- Таблица лидеров ---
 function renderLeaderboard() {
   const list = document.getElementById('lbList');
   list.innerHTML = '';
@@ -357,7 +345,6 @@ function renderLeaderboard() {
   }
 }
 
-// --- Утилиты ---
 function saveProfile() {
   localStorage.setItem('hub_profile', JSON.stringify(profile));
 }
@@ -403,7 +390,6 @@ function closeModal(id) {
   document.getElementById(id).classList.remove('show');
 }
 
-// --- API для игр ---
 window.HubAPI = {
   submitScore: function(gameId, score) {
     const current = parseInt(localStorage.getItem('best_' + gameId) || 0);
@@ -425,13 +411,11 @@ window.addEventListener('message', (e) => {
   }
 });
 
-// --- Поиск ---
 document.getElementById('searchInput').addEventListener('input', (e) => {
   searchQuery = e.target.value.toLowerCase();
   renderGames();
 });
 
-// --- Запуск ---
 initCategoryTabs();
 updateUI();
 </script>
