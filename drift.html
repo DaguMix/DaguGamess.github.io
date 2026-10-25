@@ -9,7 +9,7 @@
 html,body{width:100vw;height:100vh;overflow:hidden;background:#0a0a1a;
   font-family:-apple-system,'Segoe UI',Roboto,sans-serif;color:#fff;display:flex;justify-content:center}
 #game{position:relative;width:100%;max-width:600px;height:100vh;display:flex;flex-direction:column}
-canvas{flex:1;display:block;background:#1a1a2e;touch-action:none}
+canvas{flex:1;display:block;background:#1a1a2e;touch-action:none;cursor:crosshair}
 
 /* HUD */
 .hud{position:absolute;top:16px;left:16px;right:16px;display:flex;justify-content:space-between;
@@ -37,15 +37,6 @@ canvas{flex:1;display:block;background:#1a1a2e;touch-action:none}
   box-shadow:0 0 30px rgba(160,107,255,.5);pointer-events:none;z-index:6}
 .drift-indicator.active{opacity:1;animation:pulseDrift .3s infinite alternate}
 @keyframes pulseDrift{from{transform:translateX(-50%) scale(1)}to{transform:translateX(-50%) scale(1.08)}}
-
-/* Кнопки */
-.controls{position:absolute;bottom:20px;left:0;right:0;display:flex;justify-content:space-between;
-  padding:0 20px;z-index:6;pointer-events:none}
-.ctrl-btn{width:90px;height:90px;border-radius:20px;background:rgba(160,107,255,.15);
-  border:2px solid rgba(160,107,255,.4);backdrop-filter:blur(10px);
-  display:flex;justify-content:center;align-items:center;font-size:36px;font-weight:900;
-  cursor:pointer;transition:transform .1s;pointer-events:auto}
-.ctrl-btn:active{transform:scale(.92);background:rgba(160,107,255,.4)}
 
 /* Магазин */
 #shopScreen{position:absolute;inset:0;background:rgba(10,10,26,.95);backdrop-filter:blur(10px);
@@ -76,6 +67,27 @@ canvas{flex:1;display:block;background:#1a1a2e;touch-action:none}
   font-weight:900;background:linear-gradient(135deg,#5be3ff,#5bff9d);color:#001;cursor:pointer;
   transition:0.2s}
 #shopScreen .close-btn:hover{filter:brightness(1.15);transform:scale(1.03)}
+
+/* Стартовый экран */
+#startScreen{position:absolute;inset:0;background:rgba(10,10,26,.96);backdrop-filter:blur(20px);
+  display:flex;flex-direction:column;justify-content:center;align-items:center;padding:30px;
+  z-index:20;text-align:center}
+#startScreen.hidden{display:none}
+#startScreen h1{font-size:42px;margin-bottom:8px;font-weight:900;letter-spacing:3px;
+  background:linear-gradient(90deg,#5be3ff,#5bff9d,#ffd86b);
+  -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;
+  filter:drop-shadow(0 0 30px rgba(91,227,255,.5))}
+#startScreen .sub{color:#9aa0c0;font-size:13px;letter-spacing:6px;margin-bottom:30px;font-weight:700}
+#startScreen .rules{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.1);
+  border-radius:16px;padding:20px;max-width:340px;margin-bottom:24px;text-align:left;
+  font-size:13px;color:#9aa0c0;line-height:2;backdrop-filter:blur(10px)}
+#startScreen .rules b{color:#5be3ff;font-weight:800}
+#startScreen button{padding:18px 52px;border:none;border-radius:16px;
+  font-size:18px;font-weight:900;font-family:inherit;cursor:pointer;letter-spacing:1px;
+  background:linear-gradient(135deg,#5be3ff,#5bff9d);color:#001;transition:.2s;
+  box-shadow:0 10px 30px rgba(91,227,255,.4)}
+#startScreen button:hover{filter:brightness(1.15);transform:translateY(-2px) scale(1.03);
+  box-shadow:0 15px 40px rgba(91,227,255,.6)}
 </style>
 </head>
 <body>
@@ -90,12 +102,18 @@ canvas{flex:1;display:block;background:#1a1a2e;touch-action:none}
   </div>
 
   <div class="shop-btn" id="btnShop">🛒</div>
-
   <div class="drift-indicator" id="driftInd">+0</div>
 
-  <div class="controls">
-    <div class="ctrl-btn" id="btnLeft">◀</div>
-    <div class="ctrl-btn" id="btnRight">▶</div>
+  <div id="startScreen">
+    <h1>DRIFT RACER</h1>
+    <div class="sub">ДРИФТ-АРКАДА</div>
+    <div class="rules">
+      🕹️ <b>Управление (ПК):</b> A / D или ← →<br>
+      📱 <b>Управление (Телефон):</b> Нажимай на левую или правую часть экрана!<br>
+      💰 <b>Цель:</b> дрифтуй и собирай монеты<br>
+      🛒 <b>Магазин:</b> кнопка в углу или клавиша B
+    </div>
+    <button onclick="startGame()">ИГРАТЬ</button>
   </div>
 
   <div id="shopScreen">
@@ -111,12 +129,6 @@ const cv = document.getElementById('cv');
 const ctx = cv.getContext('2d');
 let W, H;
 
-// Палитра для вражеских машин
-const ENEMY_COLORS = [
-  '#ff5b7f', '#ff9a5b', '#ffd86b', '#5bff9d', '#5be3ff', '#a06bff',
-  '#ff4d4d', '#4dff88', '#4da6ff', '#ff4dff', '#ffaa00', '#00d4ff'
-];
-
 const state = {
   running: true,
   coins: 0,
@@ -124,7 +136,7 @@ const state = {
   speed: 0,
   maxSpeed: 400,
   playerX: 0,
-  playerAngle: 0,
+  playerAngle: 0, 
   driftScore: 0,
   keys: { left: false, right: false },
   roadOffset: 0,
@@ -147,13 +159,14 @@ function resize() {
   W = cv.width = cv.parentElement.clientWidth;
   H = cv.height = cv.parentElement.clientHeight;
   state.trackWidth = W * 0.85;
-  state.playerX = W / 2;
+  if (state.playerX === 0) state.playerX = W / 2;
 }
 window.addEventListener('resize', resize);
 resize();
 
 document.getElementById('btnShop').addEventListener('click', toggleShop);
 
+// --- КЛАВИАТУРА (ПК) ---
 window.addEventListener('keydown', e => {
   const k = e.key.toLowerCase();
   if (k === 'arrowleft' || k === 'a' || k === 'ф') state.keys.left = true;
@@ -166,21 +179,60 @@ window.addEventListener('keyup', e => {
   if (k === 'arrowright' || k === 'd' || k === 'в') state.keys.right = false;
 });
 
-const btnL = document.getElementById('btnLeft');
-const btnR = document.getElementById('btnRight');
-function bindBtn(btn, side) {
-  btn.addEventListener('pointerdown', e => { e.preventDefault(); state.keys[side] = true; });
-  btn.addEventListener('pointerup', e => { e.preventDefault(); state.keys[side] = false; });
-  btn.addEventListener('pointerleave', () => state.keys[side] = false);
-  btn.addEventListener('pointercancel', () => state.keys[side] = false);
-}
-bindBtn(btnL, 'left');
-bindBtn(btnR, 'right');
+// --- НОВОЕ ТАЧ-УПРАВЛЕНИЕ (ТЕЛЕФОН / МЫШЬ) ---
+let activeTouches = new Map();
 
+function updateTouchSteering() {
+  state.keys.left = false;
+  state.keys.right = false;
+  
+  activeTouches.forEach((side) => {
+    if (side === 'left') state.keys.left = true;
+    if (side === 'right') state.keys.right = true;
+  });
+}
+
+document.addEventListener('pointerdown', (e) => {
+  // Не срабатывает, если открыт магазин или нажата кнопка магазина
+  if (!state.running || state.shopOpen) return;
+  if (e.target.closest('.shop-btn') || e.target.closest('#shopScreen') || e.target.closest('#startScreen')) return;
+
+  const side = e.clientX < window.innerWidth / 2 ? 'left' : 'right';
+  activeTouches.set(e.pointerId, side);
+  updateTouchSteering();
+});
+
+document.addEventListener('pointermove', (e) => {
+  if (!activeTouches.has(e.pointerId) || !state.running || state.shopOpen) return;
+  
+  // Обновляем сторону при движении пальца
+  const side = e.clientX < window.innerWidth / 2 ? 'left' : 'right';
+  if (activeTouches.get(e.pointerId) !== side) {
+    activeTouches.set(e.pointerId, side);
+    updateTouchSteering();
+  }
+});
+
+document.addEventListener('pointerup', (e) => {
+  activeTouches.delete(e.pointerId);
+  updateTouchSteering();
+});
+
+document.addEventListener('pointercancel', (e) => {
+  activeTouches.delete(e.pointerId);
+  updateTouchSteering();
+});
+
+// --- МАГАЗИН ---
 function toggleShop() {
   state.shopOpen = !state.shopOpen;
   document.getElementById('shopScreen').classList.toggle('show', state.shopOpen);
-  if (state.shopOpen) updateShopUI();
+  if (state.shopOpen) {
+    updateShopUI();
+    // Сбрасываем нажатия, чтобы машина не крутилась в фоне
+    state.keys.left = false; state.keys.right = false;
+    activeTouches.clear();
+  }
 }
 
 function updateShopUI() {
@@ -216,11 +268,18 @@ function updateHUD() {
   document.getElementById('hScore').textContent = Math.floor(state.score);
 }
 
+function startGame() {
+  document.getElementById('startScreen').classList.add('hidden');
+  state.running = true;
+}
+
+// --- ИГРОВАЯ ЛОГИКА ---
 function update(dt) {
-  if (state.shopOpen) return;
+  if (!state.running || state.shopOpen) return;
 
   const maxSpeed = 400 + state.upgrades.engine * 40;
   state.speed += (maxSpeed - state.speed) * dt * 2;
+  
   const scrollSpeed = state.speed * dt;
   state.roadOffset = (state.roadOffset + scrollSpeed) % 40;
   state.score += scrollSpeed * 0.05;
@@ -278,27 +337,17 @@ function update(dt) {
     document.getElementById('driftInd').classList.remove('active');
   }
 
-  // --- Спавн врагов (исправлен) ---
   if (Math.random() < dt * 1.2) {
     const laneWidth = (state.trackWidth - 60) / 3;
     const lane = Math.floor(Math.random() * 3);
     const baseX = W/2 - state.trackWidth/2 + 30 + lane * laneWidth + laneWidth/2;
     
     if (Math.random() < 0.4) {
-      // Проверяем, есть ли уже машина в этой полосе близко к краю
-      const tooClose = state.obstacles.some(o => 
-        Math.abs(o.x - baseX) < 50 && o.y < 100
-      );
-      
-      if (!tooClose) {
-        state.obstacles.push({
-          x: baseX, y: -100, w: 44, h: 76,
-          speed: 200 + Math.random() * 150,
-          color: ENEMY_COLORS[Math.floor(Math.random() * ENEMY_COLORS.length)] // Случайный цвет!
-        });
-      }
+      state.obstacles.push({
+        x: baseX, y: -100, w: 44, h: 76,
+        speed: 200 + Math.random() * 150
+      });
     }
-    
     if (Math.random() < 0.8) {
       state.coinsArray.push({
         x: baseX + (Math.random() - 0.5) * 30,
@@ -307,7 +356,6 @@ function update(dt) {
     }
   }
 
-  // Движение объектов
   for (let i = state.obstacles.length - 1; i >= 0; i--) {
     const o = state.obstacles[i];
     o.y += (state.speed - o.speed) * dt;
@@ -326,7 +374,6 @@ function update(dt) {
     }
   }
 
-  // Монеты
   const magnetRange = 60 + state.upgrades.magnet * 40;
   for (let i = state.coinsArray.length - 1; i >= 0; i--) {
     const c = state.coinsArray[i];
@@ -352,6 +399,7 @@ function update(dt) {
   document.getElementById('hSpeed').textContent = Math.floor(state.speed / 5) + ' км/ч';
 }
 
+// --- ОТРИСОВКА ---
 function draw() {
   ctx.fillStyle = '#0f171e';
   ctx.fillRect(0, 0, W, H);
@@ -393,27 +441,16 @@ function draw() {
     ctx.fillText('$', c.x, c.y + 1);
   });
 
-  // Враги (с цветами и тенями)
   state.obstacles.forEach(o => {
-    // Тень
     ctx.fillStyle = 'rgba(0,0,0,0.4)';
     ctx.beginPath(); ctx.roundRect(o.x + 4, o.y + 4, o.w, o.h, 8); ctx.fill();
-    
-    // Кузов
-    ctx.fillStyle = o.color;
+    ctx.fillStyle = '#ff5b7f';
     ctx.beginPath(); ctx.roundRect(o.x, o.y, o.w, o.h, 8); ctx.fill();
-    
-    // Блик
-    ctx.fillStyle = 'rgba(255,255,255,0.3)';
-    ctx.beginPath(); ctx.roundRect(o.x + 4, o.y + 4, o.w - 8, o.h/2, 6); ctx.fill();
-    
-    // Стёкла
     ctx.fillStyle = 'rgba(91,227,255,.8)';
     ctx.beginPath(); ctx.roundRect(o.x + 6, o.y + 10, o.w - 12, 15, 4); ctx.fill();
     ctx.beginPath(); ctx.roundRect(o.x + 6, o.y + o.h - 25, o.w - 12, 15, 4); ctx.fill();
   });
 
-  // Игрок
   const px = state.playerX, py = H - 120;
   
   ctx.save();
@@ -450,6 +487,6 @@ function loop(t) {
 
 requestAnimationFrame(loop);
 </script>
-  <script src="back.js"></script>
+<script src="back.js"></script>
 </body>
 </html>
