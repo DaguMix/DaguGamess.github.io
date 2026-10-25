@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<title>Neon Runner 3D</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none}
+html,body{width:100vw;height:100vh;overflow:hidden;background:#000;
+  font-family:-apple-system,'Segoe UI',Roboto,sans-serif;color:#fff}
+canvas{display:block;position:absolute;top:0;left:0;width:100%;height:100%;z-index:1}
+
+/* UI Слой */
+.ui-layer{position:absolute;inset:0;z-index:10;pointer-events:none;display:flex;flex-direction:column;justify-content:space-between;padding:20px}
+
+/* Счет и Монеты */
+.score-board{text-align:center;margin-top:20px;display:flex;justify-content:center;gap:40px}
+.score-box{display:flex;flex-direction:column;align-items:center}
+.score{font-size:42px;font-weight:900;color:#fff;text-shadow:0 0 20px #5be3ff;letter-spacing:2px}
+.score.coins{color:#ffd86b;text-shadow:0 0 20px #ffd86b}
+.score-label{font-size:12px;color:#9aa0c0;letter-spacing:3px;text-transform:uppercase;margin-bottom:5px}
+
+/* Кнопки управления (для телефона) */
+.mobile-controls{display:flex;justify-content:space-between;padding:0 20px;margin-bottom:20px;opacity:0.6;pointer-events:auto}
+@media(min-width:768px){.mobile-controls{display:none}}
+.ctrl-btn{width:80px;height:80px;background:rgba(255,255,255,0.1);border:2px solid rgba(255,255,255,0.3);
+  border-radius:50%;display:flex;justify-content:center;align-items:center;font-size:30px;backdrop-filter:blur(5px)}
+.ctrl-btn:active{background:rgba(91,227,255,0.3);border-color:#5be3ff}
+.ctrl-btn.jump{width:100px;height:100px;background:rgba(160,107,255,0.2);border-color:#a06bff}
+
+/* Оверлеи */
+.overlay{position:absolute;inset:0;background:rgba(0,0,0,0.9);backdrop-filter:blur(10px);z-index:20;
+  display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;padding:20px}
+.overlay.hidden{display:none}
+
+.overlay h1{font-size:48px;font-weight:900;margin-bottom:10px;letter-spacing:4px;
+  background:linear-gradient(90deg,#5be3ff,#a06bff);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;
+  filter:drop-shadow(0 0 20px rgba(91,227,255,0.8))}
+.overlay p{color:#9aa0c0;font-size:16px;margin-bottom:20px;line-height:1.6;max-width:350px}
+.overlay button{padding:16px 48px;border:none;border-radius:14px;font-size:20px;font-weight:900;
+  font-family:inherit;cursor:pointer;background:linear-gradient(135deg,#5be3ff,#a06bff);color:#000;
+  transition:0.2s;box-shadow:0 10px 30px rgba(160,107,255,0.5);pointer-events:auto;margin:5px}
+.overlay button:hover{transform:scale(1.05);filter:brightness(1.2)}
+.overlay button.secondary{background:transparent;border:2px solid #a06bff;color:#a06bff;box-shadow:none}
+.overlay button.secondary:hover{background:rgba(160,107,255,0.2);color:#fff}
+
+/* Магазин */
+#shopScreen{overflow-y:auto;justify-content:flex-start;padding-top:40px}
+.shop-header{display:flex;justify-content:space-between;width:100%;max-width:600px;margin-bottom:20px;align-items:center}
+.shop-coins{font-size:24px;font-weight:900;color:#ffd86b;text-shadow:0 0 10px #ffd86b}
+.shop-grid{display:grid;grid-template-columns:1fr 1fr;gap:15px;width:100%;max-width:600px;padding-bottom:40px}
+.shop-item{background:rgba(255,255,255,0.05);border:2px solid rgba(255,255,255,0.1);border-radius:16px;
+  padding:15px;display:flex;flex-direction:column;align-items:center;text-align:center;transition:0.2s}
+.shop-item:hover{border-color:#a06bff}
+.shop-item.equipped{border-color:#5bff9d;background:rgba(91,255,157,0.1)}
+.item-preview{width:60px;height:60px;border-radius:50%;margin-bottom:10px;position:relative}
+.item-name{font-size:14px;font-weight:800;margin-bottom:5px}
+.item-price{font-size:12px;font-weight:700;color:#ffd86b;margin-bottom:10px}
+.shop-item button{padding:8px 15px;border-radius:8px;border:none;font-weight:800;font-family:inherit;cursor:pointer;width:100%;transition:0.2s}
+.btn-buy{background:#a06bff;color:#fff}
+.btn-buy:hover{background:#b07cff}
+.btn-equip{background:rgba(255,255,255,0.1);color:#fff}
+.btn-equip:hover{background:rgba(255,255,255,0.2)}
+.btn-equipped{background:#5bff9d;color:#000;cursor:default}
+.btn-disabled{background:rgba(255,255,255,0.05);color:#666;cursor:not-allowed}
+
+/* Кнопка В Хаб */
+.back-hub-btn {
+  position: fixed; top: 20px; left: 20px; z-index: 2147483647;
+  background: linear-gradient(135deg, #a06bff, #6b3fcf); color: #fff; text-decoration: none;
+  font-weight: 900; font-size: 16px; padding: 12px 24px; border-radius: 30px;
+  border: 3px solid #fff; box-shadow: 0 0 20px rgba(160,107,255,0.8);
+  display: flex; align-items: center; gap: 8px; font-family: inherit;
+  animation: pulseBtn 1.5s infinite; transition: transform 0.2s; pointer-events: auto;
+}
+.back-hub-btn:hover { transform: scale(1.1); background: linear-gradient(135deg, #b07cff, #7b4fdf); }
+@keyframes pulseBtn {
+  0% { box-shadow: 0 0 0 0 rgba(160, 107, 255, 0.8); }
+  70% { box-shadow: 0 0 0 15px rgba(160, 107, 255, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(160, 107, 255, 0); }
+}
+</style>
+<!-- Подключаем Three.js -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+<body>
+
+<a href="index.html" class="back-hub-btn">🏠 В Хаб</a>
+
+<div class="ui-layer">
+  <div class="score-board">
+    <div class="score-box">
+      <div class="score-label">SCORE</div>
+      <div class="score" id="uiScore">0</div>
+    </div>
+    <div class="score-box">
+      <div class="score-label">COINS</div>
+      <div class="score coins" id="uiCoins">0</div>
+    </div>
+  </div>
+  
+  <div class="mobile-controls">
+    <div class="ctrl-btn" id="btnLeft">◀</div>
+    <div class="ctrl-btn jump" id="btnJump">▲</div>
+    <div class="ctrl-btn" id="btnRight">▶</div>
+  </div>
+</div>
+
+<!-- Стартовый экран -->
+<div class="overlay" id="startScreen">
+  <h1>NEON RUNNER 3D</h1>
+  <p>Собирай монеты, покупай скины и ставь рекорды скорости!</p>
+  <button onclick="startGame()">ИГРАТЬ</button>
+  <button class="secondary" onclick="openShop()">🛒 МАГАЗИН</button>
+</div>
+
+<!-- Экран смерти -->
+<div class="overlay hidden" id="gameOverScreen">
+  <h1 style="background:linear-gradient(90deg,#ff5b7f,#ffd86b);-webkit-background-clip:text;">GAME OVER</h1>
+  <p>Пройдено: <b id="finalScore" style="color:#fff;font-size:24px;">0</b> м<br>Собрано: <b id="finalCoins" style="color:#ffd86b;font-size:24px;">0</b> 🪙</p>
+  <button onclick="startGame()">ЕЩЁ РАЗ</button>
+  <button class="secondary" onclick="openShop()">🛒 МАГАЗИН</button>
+</div>
+
+<!-- Магазин -->
+<div class="overlay hidden" id="shopScreen">
+  <div class="shop-header">
+    <h2 style="margin:0;font-size:28px;">🛒 Магазин</h2>
+    <div class="shop-coins">🪙 <span id="shopCoins">0</span></div>
+  </div>
+  <div class="shop-grid" id="shopGrid">
+    <!-- Генерируется в JS -->
+  </div>
+  <button class="secondary" onclick="closeShop()" style="margin-top:20px; width:100%; max-width:300px;">Назад</button>
+</div>
+
+<script>
+// --- БАЗА ДАННЫХ ПРЕДМЕТОВ ---
+const SKINS = [
+  { id: 'default', name: 'Стандарт', color: 0x5be3ff, price: 0 },
+  { id: 'purple', name: 'Аметист', color: 0xa06bff, price: 50 },
+  { id: 'gold', name: 'Золото', color: 0xffd86b, price: 150 },
+  { id: 'matrix', name: 'Матрица', color: 0x5bff9d, price: 300 }
+];
+
+const EFFECTS = [
+  { id: 'default', name: 'Плазма', color: 0x5be3ff, price: 0 },
+  { id: 'fire', name: 'Огонь', color: 0xff5b7f, price: 100 },
+  { id: 'ghost', name: 'Призрак', color: 0xffffff, price: 250 }
+];
+
+// --- СОСТОЯНИЕ ИГРОКА ---
+let userData = JSON.parse(localStorage.getItem('runner_save')) || {
+  coins: 0,
+  ownedSkins: ['default'],
+  ownedEffects: ['default'],
+  equippedSkin: 'default',
+  equippedEffect: 'default'
+};
+
+// --- НАСТРОЙКИ ИГРЫ ---
+const LANE_WIDTH = 4;
+const SPEED_START = 40;
+const SPEED_MAX = 120;
+const JUMP_FORCE = 14;
+const GRAVITY = -40;
+
+let scene, camera, renderer;
+let player, trailMesh;
+let floor, sideWalls = [];
+let obstacles = [];
+let coins3D = [];
+
+let isPlaying = false;
+let score = 0;
+let speed = SPEED_START;
+let currentLane = 0;
+let targetX = 0;
+let velocityY = 0;
+let isJumping = false;
+
+// --- ИНИЦИАЛИЗАЦИЯ THREE.JS ---
+function init3D() {
+  scene = new THREE.Scene();
+  scene.fog = new THREE.FogExp2(0x050510, 0.015);
+
+  camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+  camera.position.set(0, 6, 10);
+  camera.lookAt(0, 2, -20);
+
+  renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setClearColor(0x050510);
+  document.body.appendChild(renderer.domElement);
+
+  const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+  scene.add(ambientLight);
+
+  const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+  dirLight.position.set(10, 20, 10);
+  scene.add(dirLight);
+
+  const playerLight = new THREE.PointLight(0x5be3ff, 1, 20);
+  playerLight.position.set(0, 3, 0);
+  scene.add(playerLight);
+
+  createEnvironment();
+  createPlayer();
+  applyEquippedItems(); // Применяем сохраненные скины
+}
+
+// --- СОЗДАНИЕ ОКРУЖЕНИЯ ---
+function createEnvironment() {
+  const floorGeo = new THREE.PlaneGeometry(LANE_WIDTH * 3, 200);
+  const floorMat = new THREE.MeshStandardMaterial({ color: 0x111122, roughness: 0.2, metalness: 0.8 });
+  floor = new THREE.Mesh(floorGeo, floorMat);
+  floor.rotation.x = -Math.PI / 2;
+  floor.position.z = -90;
+  scene.add(floor);
+
+  for (let i = -1; i <= 1; i++) {
+    const lineGeo = new THREE.PlaneGeometry(0.1, 200);
+    const lineMat = new THREE.MeshBasicMaterial({ color: i === 0 ? 0x5be3ff : 0xa06bff });
+    const line = new THREE.Mesh(lineGeo, lineMat);
+    line.rotation.x = -Math.PI / 2;
+    line.position.set(i * LANE_WIDTH, 0.01, -90);
+    scene.add(line);
+  }
+
+  const wallMat = new THREE.MeshBasicMaterial({ color: 0x222244, wireframe: true });
+  for (let i = -1; i <= 1; i+=2) {
+    const wall = new THREE.Mesh(new THREE.PlaneGeometry(200, 20), wallMat);
+    wall.rotation.y = i * Math.PI / 2;
+    wall.position.set(i * (LANE_WIDTH * 1.5), 10, -90);
+    scene.add(wall);
+    sideWalls.push(wall);
+  }
+}
+
+// --- СОЗДАНИЕ ИГРОКА ---
+function createPlayer() {
+  const geo = new THREE.OctahedronGeometry(1.2, 0);
+  const mat = new THREE.MeshStandardMaterial({ 
+    color: 0x5be3ff, emissive: 0x5be3ff, emissiveIntensity: 0.5, roughness: 0.1, metalness: 0.9
+  });
+  player = new THREE.Mesh(geo, mat);
+  player.position.set(0, 1.5, 0);
+  scene.add(player);
+
+  // Хвост (след)
+  const trailGeo = new THREE.ConeGeometry(0.8, 3, 8);
+  const trailMat = new THREE.MeshBasicMaterial({ color: 0x5be3ff, transparent: true, opacity: 0.5 });
+  trailMesh = new THREE.Mesh(trailGeo, trailMat);
+  trailMesh.rotation.x = Math.PI / 2;
+  trailMesh.position.z = 2;
+  player.add(trailMesh);
+}
+
+// --- ПРИМЕНЕНИЕ СКИНОВ ---
+function applyEquippedItems() {
+  const skin = SKINS.find(s => s.id === userData.equippedSkin) || SKINS[0];
+  const effect = EFFECTS.find(e => e.id === userData.equippedEffect) || EFFECTS[0];
+  
+  if (player && player.material) {
+    player.material.color.setHex(skin.color);
+    player.material.emissive.setHex(skin.color);
+  }
+  if (trailMesh && trailMesh.material) {
+    trailMesh.material.color.setHex(effect.color);
+  }
+}
+
+// --- МАГАЗИН (UI) ---
+function openShop() {
+  document.getElementById('startScreen').classList.add('hidden');
+  document.getElementById('gameOverScreen').classList.add('hidden');
+  document.getElementById('shopScreen').classList.remove('hidden');
+  renderShop();
+}
+
+function closeShop() {
+  document.getElementById('shopScreen').classList.add('hidden');
+  document.getElementById('startScreen').classList.remove('hidden');
+}
+
+function renderShop() {
+  document.getElementById('shopCoins').textContent = userData.coins;
+  const grid = document.getElementById('shopGrid');
+  grid.innerHTML = '';
+
+  // Рендер скинов
+  SKINS.forEach(skin => {
+    grid.appendChild(createShopItem(skin, 'skin', userData.equippedSkin, userData.ownedSkins));
+  });
+
+  // Рендер эффектов
+  EFFECTS.forEach(effect => {
+    grid.appendChild(createShopItem(effect, 'effect', userData.equippedEffect, userData.ownedEffects));
+  });
+}
+
+function createShopItem(item, type, equippedId, ownedArray) {
+  const isOwned = ownedArray.includes(item.id);
+  const isEquipped = equippedId === item.id;
+  
+  const div = document.createElement('div');
+  div.className = 'shop-item' + (isEquipped ? ' equipped' : '');
+  
+  const hexColor = '#' + item.color.toString(16).padStart(6, '0');
+  
+  div.innerHTML = `
+    <div class="item-preview" style="background:radial-gradient(circle at 30% 30%, #fff, ${hexColor}); box-shadow:0 0 15px ${hexColor}"></div>
+    <div class="item-name">${item.name}</div>
+    ${isOwned ? '' : `<div class="item-price">${item.price} 🪙</div>`}
+  `;
+
+  const btn = document.createElement('button');
+  if (isEquipped) {
+    btn.className = 'btn-equipped';
+    btn.textContent = 'Надето';
+    btn.disabled = true;
+  } else if (isOwned) {
+    btn.className = 'btn-equip';
+    btn.textContent = 'Надеть';
+    btn.onclick = () => {
+      if (type === 'skin') userData.equippedSkin = item.id;
+      else userData.equippedEffect = item.id;
+      saveData();
+      applyEquippedItems();
+      renderShop();
+    };
+  } else {
+    const canAfford = userData.coins >= item.price;
+    btn.className = canAfford ? 'btn-buy' : 'btn-disabled';
+    btn.textContent = canAfford ? 'Купить' : 'Мало монет';
+    btn.disabled = !canAfford;
+    btn.onclick = () => {
+      if (userData.coins >= item.price) {
+        userData.coins -= item.price;
+        ownedArray.push(item.id);
+        if (type === 'skin') userData.equippedSkin = item.id;
+        else userData.equippedEffect = item.id;
+        saveData();
+        applyEquippedItems();
+        renderShop();
+      }
+    };
+  }
+
+  div.appendChild(btn);
+  return div;
+}
+
+function saveData() {
+  localStorage.setItem('runner_save', JSON.stringify(userData));
+}
+
+// --- СПАВН ПРЕПЯТСТВИЙ И МОНЕТ ---
+function spawnObjects() {
+  if (!isPlaying) return;
+
+  const lane = Math.floor(Math.random() * 3) - 1;
+  const xPos = lane * LANE_WIDTH;
+
+  if (Math.random() < 0.65) {
+    // Препятствие
+    const h = Math.random() * 2 + 1;
+    const obsGeo = new THREE.BoxGeometry(2.5, h, 2.5);
+    const obsMat = new THREE.MeshStandardMaterial({ color: 0xff5b7f, emissive: 0xff5b7f, emissiveIntensity: 0.3 });
+    const obs = new THREE.Mesh(obsGeo, obsMat);
+    obs.position.set(xPos, h/2, -150);
+    obs.userData = { type: 'obstacle' };
+    scene.add(obs);
+    obstacles.push(obs);
+  } else {
+    // Монета
+    const coinGeo = new THREE.TorusGeometry(0.6, 0.2, 8, 20);
+    const coinMat = new THREE.MeshStandardMaterial({ color: 0xffd86b, emissive: 0xffd86b, emissiveIntensity: 0.5 });
+    const coin = new THREE.Mesh(coinGeo, coinMat);
+    coin.position.set(xPos, 1.5, -150);
+    coin.userData = { type: 'coin' };
+    scene.add(coin);
+    coins3D.push(coin);
+  }
+}
+
+// --- УПРАВЛЕНИЕ ---
+function moveLeft() { if (currentLane > -1) { currentLane--; targetX = currentLane * LANE_WIDTH; } }
+function moveRight() { if (currentLane < 1) { currentLane++; targetX = currentLane * LANE_WIDTH; } }
+function jump() { if (!isJumping && isPlaying) { isJumping = true; velocityY = JUMP_FORCE; } }
+
+window.addEventListener('keydown', e => {
+  if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A' || e.key === 'ф') moveLeft();
+  if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D' || e.key === 'в') moveRight();
+  if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W' || e.key === 'ц' || e.key === ' ') jump();
+});
+
+document.getElementById('btnLeft').addEventListener('touchstart', (e) => { e.preventDefault(); moveLeft(); });
+document.getElementById('btnRight').addEventListener('touchstart', (e) => { e.preventDefault(); moveRight(); });
+document.getElementById('btnJump').addEventListener('touchstart', (e) => { e.preventDefault(); jump(); });
+
+let touchStartX = 0, touchStartY = 0;
+document.addEventListener('touchstart', e => {
+  touchStartX = e.changedTouches[0].screenX;
+  touchStartY = e.changedTouches[0].screenY;
+}, {passive: true});
+
+document.addEventListener('touchend', e => {
+  let dx = e.changedTouches[0].screenX - touchStartX;
+  let dy = e.changedTouches[0].screenY - touchStartY;
+  if (Math.abs(dx) > Math.abs(dy)) {
+    if (dx > 30) moveRight();
+    else if (dx < -30) moveLeft();
+  } else {
+    if (dy < -30) jump();
+  }
+}, {passive: true});
+
+// --- ИГРОВОЙ ЦИКЛ ---
+let lastTime = performance.now();
+let spawnTimer = 0;
+
+function animate() {
+  requestAnimationFrame(animate);
+  const now = performance.now();
+  const dt = Math.min((now - lastTime) / 1000, 0.05);
+  lastTime = now;
+
+  if (isPlaying) {
+    speed = Math.min(speed + dt * 2, SPEED_MAX);
+    score += Math.floor(speed * dt);
+
+    player.position.x += (targetX - player.position.x) * 10 * dt;
+    player.rotation.z = (targetX - player.position.x) * -0.2;
+
+    if (isJumping) {
+      player.position.y += velocityY * dt;
+      velocityY += GRAVITY * dt;
+      if (player.position.y <= 1.5) {
+        player.position.y = 1.5;
+        isJumping = false;
+        velocityY = 0;
+      }
+    }
+
+    spawnTimer -= dt;
+    if (spawnTimer <= 0) {
+      spawnObjects();
+      spawnTimer = Math.max(0.3, 1.5 - (speed / 100));
+    }
+
+    for (let i = obstacles.length - 1; i >= 0; i--) {
+      let obs = obstacles[i];
+      obs.position.z += speed * dt;
+      obs.rotation.y += dt * 2;
+      if (Math.abs(obs.position.z) < 2 && Math.abs(obs.position.x - player.position.x) < 2) {
+        if (player.position.y < obs.scale.y + 1) gameOver();
+      }
+      if (obs.position.z > 20) { scene.remove(obs); obstacles.splice(i, 1); }
+    }
+
+    for (let i = coins3D.length - 1; i >= 0; i--) {
+      let coin = coins3D[i];
+      coin.position.z += speed * dt;
+      coin.rotation.y += dt * 5;
+      
+      // Сбор монеты
+      if (Math.abs(coin.position.z) < 2 && Math.abs(coin.position.x - player.position.x) < 2) {
+        if (player.position.y < 4) {
+          userData.coins += 10; // Даем 10 монет за штуку
+          score += 5; // Немного очков
+          saveData();
+          document.getElementById('uiCoins').textContent = userData.coins;
+          scene.remove(coin);
+          coins3D.splice(i, 1);
+          continue;
+        }
+      }
+      if (coin.position.z > 20) { scene.remove(coin); coins3D.splice(i, 1); }
+    }
+
+    sideWalls.forEach(wall => {
+      wall.position.z += speed * dt;
+      if (wall.position.z > 20) wall.position.z -= 200;
+    });
+
+    document.getElementById('uiScore').textContent = score;
+  }
+
+  renderer.render(scene, camera);
+}
+
+// --- СТАРТ И КОНЕЦ ---
+function startGame() {
+  document.getElementById('startScreen').classList.add('hidden');
+  document.getElementById('gameOverScreen').classList.add('hidden');
+  document.getElementById('shopScreen').classList.add('hidden');
+  
+  obstacles.forEach(o => scene.remove(o));
+  coins3D.forEach(c => scene.remove(c));
+  obstacles = [];
+  coins3D = [];
+  
+  score = 0;
+  speed = SPEED_START;
+  currentLane = 0;
+  targetX = 0;
+  player.position.set(0, 1.5, 0);
+  player.rotation.set(0, 0, 0);
+  isJumping = false;
+  velocityY = 0;
+  spawnTimer = 1;
+  
+  document.getElementById('uiCoins').textContent = userData.coins;
+  isPlaying = true;
+}
+
+function gameOver() {
+  isPlaying = false;
+  document.getElementById('finalScore').textContent = score;
+  document.getElementById('finalCoins').textContent = userData.coins;
+  document.getElementById('gameOverScreen').classList.remove('hidden');
+}
+
+// Запуск
+init3D();
+animate();
+
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+</script>
+<script src="back.js"></script>
+</body>
+</html>
