@@ -400,5 +400,17 @@ setInterval(updateUI, 500);
 setInterval(save, 5000);
 updateUI();
 </script>
+  <!-- Кнопка возврата в хаб -->
+<button onclick="window.close(); setTimeout(() => window.location.href = 'index.html', 100);" 
+        style="position: fixed; top: 15px; left: 15px; z-index: 9999999; 
+               background: linear-gradient(135deg, #a06bff, #6b3fcf); color: white; 
+               border: 2px solid rgba(255,255,255,0.8); padding: 8px 16px; 
+               border-radius: 30px; font-weight: 900; font-size: 14px; cursor: pointer; 
+               box-shadow: 0 4px 15px rgba(0,0,0,0.6); transition: 0.2s; font-family: inherit;
+               display: flex; align-items: center; gap: 6px;"
+        onmouseover="this.style.transform='scale(1.05)'" 
+        onmouseout="this.style.transform='scale(1)'">
+    🏠 В Хаб
+</button>
 </body>
 </html>
