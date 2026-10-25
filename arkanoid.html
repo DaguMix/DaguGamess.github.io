@@ -523,53 +523,5 @@ state.best = parseInt(localStorage.getItem('arkanoid_best') || 0);
 resize();
 requestAnimationFrame(loop);
 </script>
-  <!-- МУЗЫКА -->
-<div id="hidden-music" style="position: fixed; top: -9999px; left: -9999px; opacity: 0.01;">
-    <div id="vk_playlist_646847425_6"></div>
-</div>
-<button id="music-btn" style="position: fixed; bottom: 15px; left: 15px; z-index: 99999; background: rgba(160,107,255,0.5); color: white; border: 1px solid rgba(255,255,255,0.3); border-radius: 50%; width: 40px; height: 40px; cursor: pointer; font-size: 18px; backdrop-filter: blur(5px); transition: 0.3s;">🔇</button>
-<script type="text/javascript" src="https://vk.ru/js/api/openapi.js"></script>
-
-<script>
-    let musicStarted = false;
-    let isMuted = true; 
-
-    function startGameMusic() {
-        if (!musicStarted) {
-            VK.Widgets.Playlist("vk_playlist_646847425_6", 646847425, 6, "", {});
-            musicStarted = true;
-            document.getElementById('music-btn').textContent = '🎵';
-            isMuted = false;
-        }
-    }
-
-    // Запуск при первом клике в игре
-    document.addEventListener('click', function initMusic() {
-        startGameMusic();
-        document.removeEventListener('click', initMusic);
-    }, { once: true });
-
-    // Кнопка вкл/выкл
-    document.getElementById('music-btn').addEventListener('click', function(e) {
-        e.stopPropagation(); // Чтобы клик по кнопке не засчитывался как игровой
-        if (!musicStarted) {
-            startGameMusic();
-            return;
-        }
-        const iframe = document.querySelector('#vk_playlist_646847425_6 iframe');
-        
-        if (!isMuted) {
-            if (iframe) iframe.contentWindow.postMessage(JSON.stringify({ command: 'pause' }), '*');
-            this.textContent = '🔇';
-            this.style.background = 'rgba(100,100,100,0.5)';
-            isMuted = true;
-        } else {
-            if (iframe) iframe.contentWindow.postMessage(JSON.stringify({ command: 'play' }), '*');
-            this.textContent = '🎵';
-            this.style.background = 'rgba(160,107,255,0.5)';
-            isMuted = false;
-        }
-    });
-</script>
 </body>
 </html>
