@@ -399,32 +399,9 @@ setInterval(tick, 100);
 setInterval(updateUI, 500);
 setInterval(save, 5000);
 updateUI();
-<!-- НАЧАЛО КОДА МУЗЫКИ -->
-<button id="musicBtn" style="position:fixed; bottom:20px; right:20px; z-index:9999999; background:linear-gradient(135deg, #a06bff, #5be3ff); color:white; border:none; padding:12px 24px; border-radius:30px; font-weight:bold; font-size:16px; cursor:pointer; box-shadow:0 5px 15px rgba(0,0,0,0.5);">🎵 Музыка</button>
-<div id="musicContainer" style="position:fixed; bottom:80px; right:20px; z-index:9999998; display:none; background:#000; border:2px solid #a06bff; border-radius:10px; overflow:hidden;">
-    <div id="vk_playlist_646847425_6"></div>
+<!-- МУЗЫКА -->
+<div id="vk-music-player" style="position: fixed; bottom: 20px; right: 20px; z-index: 9999999; width: 300px; height: 180px; border-radius: 12px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.8); border: 2px solid #a06bff;">
+    <iframe src="https://vk.com/widget_playlist.php?app=0&width=300&_ver=1&oid=-646847425&id=6" width="300" height="180" frameborder="0" allow="autoplay"></iframe>
 </div>
-<script src="https://vk.ru/js/api/openapi.js"></script>
-<script>
-    let musicLoaded = false;
-    let musicOpen = false;
-    document.getElementById('musicBtn').onclick = function(e) {
-        e.stopPropagation(); // Чтобы клик не мешал игре
-        let container = document.getElementById('musicContainer');
-        if(!musicOpen) {
-            container.style.display = 'block';
-            this.innerText = '✖ Скрыть';
-            if(!musicLoaded) {
-                VK.Widgets.Playlist("vk_playlist_646847425_6", 646847425, 6, "", {});
-                musicLoaded = true;
-            }
-        } else {
-            container.style.display = 'none';
-            this.innerText = '🎵 Музыка';
-        }
-        musicOpen = !musicOpen;
-    };
-</script>
-<!-- КОНЕЦ КОДА МУЗЫКИ -->
 </body>
 </html>
