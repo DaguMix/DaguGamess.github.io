@@ -82,22 +82,19 @@ body::before { content:''; position:fixed; inset:0; pointer-events:none; z-index
 .lb-row:nth-child(2) { border-left:4px solid #c0c0c0; }
 .lb-row:nth-child(3) { border-left:4px solid #cd7f32; }
 
-/* --- МУЗЫКАЛЬНЫЙ ПЛЕЕР --- */
-#music-container {
-    position: fixed; bottom: 20px; left: 20px; z-index: 1000;
-    background: var(--bg); border: 1px solid var(--accent); border-radius: 16px;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.5); overflow: hidden;
-    display: none; width: 320px; transition: opacity 0.3s;
+/* --- МУЗЫКА (Скрытый плеер) --- */
+#hidden-music-box {
+    position: fixed; top: -9999px; left: -9999px; opacity: 0.01; pointer-events: none;
 }
 #music-toggle {
-    position: fixed; bottom: 20px; left: 20px; z-index: 1001;
+    position: fixed; bottom: 20px; left: 20px; z-index: 1000;
     width: 50px; height: 50px; border-radius: 50%; border: 1px solid var(--accent);
     background: var(--accent); color: white; font-size: 24px; cursor: pointer;
     display: flex; justify-content: center; align-items: center;
     box-shadow: 0 5px 20px rgba(160,107,255,0.5); transition: 0.3s;
 }
 #music-toggle:hover { transform: scale(1.1); background: var(--accent-hover); }
-#music-toggle.active { left: 340px; background: #ff5b7f; border-color: #ff5b7f; }
+#music-toggle.muted { background: #555; border-color: #555; box-shadow: none; }
 </style>
 </head>
 <body>
@@ -146,7 +143,7 @@ body::before { content:''; position:fixed; inset:0; pointer-events:none; z-index
 </div>
 
 <!-- МУЗЫКА -->
-<div id="music-container">
+<div id="hidden-music-box">
     <div id="vk_playlist_646847425_6"></div>
 </div>
 <button id="music-toggle" onclick="toggleMusic()">🎵</button>
@@ -157,28 +154,51 @@ body::before { content:''; position:fixed; inset:0; pointer-events:none; z-index
 <script>
 // --- Логика Музыки ---
 let musicLoaded = false;
-let musicOpen = false;
+let isMusicMuted = false;
+
+// Загружаем виджет скрыто
+function loadMusic() {
+    if (!musicLoaded) {
+        VK.Widgets.Playlist("vk_playlist_646847425_6", 646847425, 6, "", {});
+        musicLoaded = true;
+        console.log("Музыка загружена. Ждем клика для старта...");
+    }
+}
+
+// Браузеры блокируют автоплей без клика. Запускаем при первом клике по сайту.
+document.addEventListener('click', function initAudioOnFirstClick() {
+    loadMusic();
+    // Убираем слушатель после первого клика
+    document.removeEventListener('click', initAudioOnFirstClick);
+}, { once: true });
 
 function toggleMusic() {
-    const container = document.getElementById('music-container');
     const btn = document.getElementById('music-toggle');
+    const iframe = document.querySelector('#vk_playlist_646847425_6 iframe');
     
-    if (!musicOpen) {
-        container.style.display = 'block';
-        btn.classList.add('active');
-        btn.textContent = '✖';
-        musicOpen = true;
-        
-        // Инициализируем виджет только один раз
-        if (!musicLoaded) {
-            VK.Widgets.Playlist("vk_playlist_646847425_6", 646847425, 6, "", {});
-            musicLoaded = true;
-        }
-    } else {
-        container.style.display = 'none';
-        btn.classList.remove('active');
+    if (!musicLoaded) {
+        loadMusic();
+        isMusicMuted = false;
+        btn.classList.remove('muted');
         btn.textContent = '🎵';
-        musicOpen = false;
+        return;
+    }
+
+    if (!isMusicMuted) {
+        // Пытаемся поставить на паузу или убавить звук
+        if (iframe) {
+            iframe.contentWindow.postMessage(JSON.stringify({ command: 'pause' }), '*');
+        }
+        isMusicMuted = true;
+        btn.classList.add('muted');
+        btn.textContent = '🔇';
+    } else {
+        if (iframe) {
+            iframe.contentWindow.postMessage(JSON.stringify({ command: 'play' }), '*');
+        }
+        isMusicMuted = false;
+        btn.classList.remove('muted');
+        btn.textContent = '🎵';
     }
 }
 
