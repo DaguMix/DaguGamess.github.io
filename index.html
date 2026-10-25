@@ -31,7 +31,9 @@ body::before { content:''; position:fixed; inset:0; pointer-events:none; z-index
 
 /* Профиль */
 .profile-bar { max-width:1000px; margin:0 auto 20px; background:var(--card-bg); border:1px solid var(--card-border); border-radius:20px; padding:16px 24px; display:flex; align-items:center; gap:20px; }
-.avatar { width:64px; height:64px; border-radius:50%; background:linear-gradient(135deg,#5be3ff,#a06bff); display:flex; justify-content:center; align-items:center; font-size:32px; box-shadow:0 0 20px rgba(160,107,255,.5); }
+.avatar { width:64px; height:64px; border-radius:50%; background:linear-gradient(135deg,#5be3ff,#a06bff); display:flex; justify-content:center; align-items:center; font-size:32px; box-shadow:0 0 20px rgba(160,107,255,.5); cursor:pointer; transition:0.2s; position:relative; }
+.avatar:hover { transform:scale(1.05); }
+.avatar::after { content:'✎'; position:absolute; bottom:0; right:0; background:var(--bg); font-size:14px; width:20px; height:20px; border-radius:50%; display:flex; justify-content:center; align-items:center; border:1px solid var(--accent); }
 .profile-info { flex:1; }
 .profile-name { font-size:20px; font-weight:800; display:flex; align-items:center; gap:10px; }
 .edit-name { font-size:14px; cursor:pointer; opacity:0.5; }
@@ -40,6 +42,19 @@ body::before { content:''; position:fixed; inset:0; pointer-events:none; z-index
 .lvl-badge { background:var(--accent); color:#fff; padding:2px 10px; border-radius:8px; font-size:12px; font-weight:800; }
 .xp-bar { flex:1; height:8px; background:rgba(0,0,0,.2); border-radius:4px; overflow:hidden; }
 .xp-fill { height:100%; background:linear-gradient(90deg,#5be3ff,#5bff9d); transition:width .3s; }
+
+/* Поиск и категории */
+.filters-section { max-width:1000px; margin:0 auto 20px; display:flex; flex-direction:column; gap:15px; padding:0 20px; }
+.search-box { width:100%; position:relative; }
+.search-box input { width:100%; padding:16px 24px; border-radius:16px; border:1px solid var(--card-border); background:var(--card-bg); color:var(--text); font-size:16px; font-family:inherit; outline:none; transition:.2s; }
+.search-box input:focus { border-color:var(--accent); box-shadow:0 0 15px rgba(160,107,255,.3); }
+.search-box input::placeholder { color:var(--text-muted); }
+
+.category-tabs { display:flex; gap:10px; overflow-x:auto; padding-bottom:5px; scrollbar-width:none; }
+.category-tabs::-webkit-scrollbar { display:none; }
+.cat-btn { padding:8px 20px; border-radius:20px; background:var(--card-bg); border:1px solid var(--card-border); color:var(--text-muted); font-weight:700; cursor:pointer; transition:.2s; white-space:nowrap; }
+.cat-btn:hover { border-color:var(--accent); color:var(--text); }
+.cat-btn.active { background:var(--accent); border-color:var(--accent); color:#fff; box-shadow:0 5px 15px rgba(160,107,255,.4); }
 
 /* Сетка игр */
 .game-list { display:grid; grid-template-columns:1fr; gap:20px; max-width:1000px; margin:0 auto; padding:0 20px 40px; }
@@ -60,22 +75,26 @@ body::before { content:''; position:fixed; inset:0; pointer-events:none; z-index
 /* Модалки */
 .modal { position:fixed; inset:0; background:rgba(0,0,0,.8); display:none; justify-content:center; align-items:center; z-index:100; backdrop-filter:blur(5px); }
 .modal.show { display:flex; }
-.modal-box { background:var(--bg); border:1px solid var(--accent); border-radius:20px; padding:24px; max-width:400px; width:90%; max-height:80vh; overflow-y:auto; }
+.modal-box { background:var(--bg); border:1px solid var(--accent); border-radius:20px; padding:24px; max-width:400px; width:90%; max-height:80vh; overflow-y:auto; text-align:center; }
 .modal-box h2 { margin-bottom:16px; color:var(--accent); }
 .modal-box input { width:100%; padding:12px; border-radius:10px; border:1px solid var(--card-border); background:var(--card-bg); color:var(--text); font-size:16px; margin-bottom:12px; font-family:inherit; }
 .modal-box button { width:100%; padding:12px; border:none; border-radius:10px; background:var(--accent); color:#fff; font-weight:800; font-size:15px; cursor:pointer; margin-top:8px; }
 .modal-box button:hover { background:var(--accent-hover); }
 
-/* Достижения */
+/* Сетка аватарок */
+.avatar-grid { display:grid; grid-template-columns:repeat(4, 1fr); gap:10px; margin-bottom:10px; }
+.avatar-item { font-size:32px; width:60px; height:60px; display:flex; justify-content:center; align-items:center; background:var(--card-bg); border:1px solid var(--card-border); border-radius:12px; cursor:pointer; transition:.2s; margin:0 auto; }
+.avatar-item:hover { border-color:var(--accent); transform:scale(1.1); }
+.avatar-item.active { background:rgba(160,107,255,0.2); border-color:var(--accent); }
+
+/* Достижения и Лидеры */
 .ach-list { display:flex; flex-direction:column; gap:10px; }
 .ach-item { display:flex; align-items:center; gap:12px; padding:10px; border-radius:12px; background:var(--card-bg); border:1px solid var(--card-border); opacity:0.5; }
 .ach-item.unlocked { opacity:1; border-color:#5bff9d; box-shadow:0 0 15px rgba(91,255,157,.2); }
 .ach-icon { font-size:28px; width:44px; height:44px; display:flex; justify-content:center; align-items:center; background:rgba(0,0,0,.2); border-radius:10px; }
-.ach-info { flex:1; }
+.ach-info { flex:1; text-align:left; }
 .ach-name { font-weight:800; font-size:14px; }
 .ach-desc { font-size:11px; color:var(--text-muted); }
-
-/* Таблица лидеров */
 .leaderboard { display:flex; flex-direction:column; gap:6px; }
 .lb-row { display:flex; justify-content:space-between; padding:10px 14px; background:var(--card-bg); border-radius:10px; font-size:14px; }
 .lb-row:nth-child(1) { border-left:4px solid #ffd86b; }
@@ -95,7 +114,7 @@ body::before { content:''; position:fixed; inset:0; pointer-events:none; z-index
 </div>
 
 <div class="profile-bar">
-  <div class="avatar" id="avatar">👤</div>
+  <div class="avatar" id="avatar" onclick="openModal('modalAvatar')" title="Сменить аватар">👤</div>
   <div class="profile-info">
     <div class="profile-name">
       <span id="pName">Игрок</span>
@@ -109,9 +128,30 @@ body::before { content:''; position:fixed; inset:0; pointer-events:none; z-index
   </div>
 </div>
 
+<!-- Поиск и Фильтры -->
+<div class="filters-section">
+  <div class="search-box">
+    <input type="text" id="searchInput" placeholder="🔍 Поиск игры по названию или описанию...">
+  </div>
+  <div class="category-tabs" id="categoryTabs">
+    <!-- Кнопки генерируются в JS -->
+  </div>
+</div>
+
 <div class="game-list" id="gameList"></div>
 
-<!-- Модалки -->
+<!-- Модалка Аватарки -->
+<div class="modal" id="modalAvatar">
+  <div class="modal-box">
+    <h2>Выбери аватар</h2>
+    <div class="avatar-grid" id="avatarGrid">
+      <!-- Генерируется в JS -->
+    </div>
+    <button onclick="closeModal('modalAvatar')">Закрыть</button>
+  </div>
+</div>
+
+<!-- Модалка Достижения -->
 <div class="modal" id="modalAch">
   <div class="modal-box">
     <h2>🏅 Достижения</h2>
@@ -120,6 +160,7 @@ body::before { content:''; position:fixed; inset:0; pointer-events:none; z-index
   </div>
 </div>
 
+<!-- Модалка Рекорды -->
 <div class="modal" id="modalLb">
   <div class="modal-box">
     <h2>🏆 Таблица лидеров</h2>
@@ -129,23 +170,44 @@ body::before { content:''; position:fixed; inset:0; pointer-events:none; z-index
 </div>
 
 <script>
+// --- Данные игр (добавлены категории) ---
 const GAMES = [
-  { id: 'tap', file: 'tap.html', title: 'Кликер', emoji: '💎', tag: 'TAP', desc: 'Тапай монету и качай улучшения.' },
-  { id: 'drift', file: 'drift.html', title: 'Дрифт', emoji: '🏎️', tag: 'RACE', desc: 'Дрифтуй и качай машины.' },
-  { id: 'defense', file: 'defense.html', title: 'Защита базы', emoji: '🛡️', tag: 'TOWER', desc: 'Защищай базу от волн врагов.' },
-  { id: 'arkanoid', file: 'arkanoid.html', title: 'Разбей кирпич', emoji: '🧱', tag: 'ARCADE', desc: 'Разбивай кирпичи и лови бонусы.' },
-  { id: 'zombie', file: 'zombie.html', title: 'Зомби Шутер', emoji: '🧟', tag: 'SURVIVE', desc: 'Отбивайся от зомби и качай оружие.' },
-  { id: 'blockblast', file: 'blockblast.html', title: 'Block Blast', emoji: '🧩', tag: 'PUZZLE', desc: 'Расставляй блоки и зачищай линии.' },
-  { id: 'racer', file: 'racer.html', title: 'Гонки', emoji: '🚗', tag: 'RACING', desc: 'Гонки сверху вниз с монетами.' },
-  { id: 'gibdd', file: 'gibdd.html', title: 'ГИБДД Рулетка', emoji: '🚓', tag: 'LUCK', desc: 'Крути номера, собирай блатные и качай удачу.' },
-  { id: 'slots', file: 'slots.html', title: 'Казик 777', emoji: '🎰', tag: 'CASINO', desc: 'Крути барабаны, лови джекпот и умножай баланс.' },
-  { id: 'rogue', file: 'rogue.html', title: 'Исследуй подземелье', emoji: '🗡️', tag: 'ROGUELIKE', desc: 'Сражайся с монстрами и ищи сокровища.' },
-  { id: 'geo', file: 'geo.html', title: 'Тест на знание Европы и Азии', emoji: '🌍', tag: 'QUIZ', desc: 'Проверь свои знания географии.' }
+  { id: 'tap', file: 'tap.html', title: 'Кликер', emoji: '💎', category: 'tycoon', tag: 'TAP', desc: 'Тапай монету и качай улучшения.' },
+  { id: 'drift', file: 'drift.html', title: 'Дрифт', emoji: '🏎️', category: 'race', tag: 'RACE', desc: 'Дрифтуй и качай машины.' },
+  { id: 'defense', file: 'defense.html', title: 'Защита базы', emoji: '🛡️', category: 'strategy', tag: 'TOWER', desc: 'Защищай базу от волн врагов.' },
+  { id: 'arkanoid', file: 'arkanoid.html', title: 'Разбей кирпич', emoji: '🧱', category: 'arcade', tag: 'ARCADE', desc: 'Разбивай кирпичи и лови бонусы.' },
+  { id: 'zombie', file: 'zombie.html', title: 'Зомби Шутер', emoji: '🧟', category: 'shooter', tag: 'SURVIVE', desc: 'Отбивайся от зомби и качай оружие.' },
+  { id: 'blockblast', file: 'blockblast.html', title: 'Block Blast', emoji: '🧩', category: 'puzzle', tag: 'PUZZLE', desc: 'Расставляй блоки и зачищай линии.' },
+  { id: 'racer', file: 'racer.html', title: 'Гонки', emoji: '🚗', category: 'race', tag: 'RACING', desc: 'Гонки сверху вниз с монетами.' },
+  { id: 'gibdd', file: 'gibdd.html', title: 'ГИБДД Рулетка', emoji: '🚓', category: 'casino', tag: 'LUCK', desc: 'Крути номера, собирай блатные и качай удачу.' },
+  { id: 'slots', file: 'slots.html', title: 'Казик 777', emoji: '🎰', category: 'casino', tag: 'CASINO', desc: 'Крути барабаны, лови джекпот и умножай баланс.' },
+  { id: 'rogue', file: 'rogue.html', title: 'Исследуй подземелье', emoji: '🗡️', category: 'rpg', tag: 'ROGUELIKE', desc: 'Сражайся с монстрами и ищи сокровища.' },
+  { id: 'geo', file: 'geo.html', title: 'Тест на знание Европы и Азии', emoji: '🌍', category: 'quiz', tag: 'QUIZ', desc: 'Проверь свои знания географии.' }
 ];
 
+const CATEGORIES = [
+  { id: 'all', name: 'Все игры' },
+  { id: 'arcade', name: 'Аркады' },
+  { id: 'puzzle', name: 'Головоломки' },
+  { id: 'shooter', name: 'Шутеры' },
+  { id: 'race', name: 'Гонки' },
+  { id: 'casino', name: 'Казино' },
+  { id: 'strategy', name: 'Стратегии' },
+  { id: 'rpg', name: 'Рогалики' },
+  { id: 'tycoon', name: 'Кликеры' },
+  { id: 'quiz', name: 'Викторины' }
+];
+
+const AVAILABLE_AVATARS = ['👤', '🐱', '🐶', '🦊', '🐼', '🐸', '👽', '🤖', '👻', '😎', '🧙‍♂️', '🦸‍♂️', '🦹‍♂️', '🥷', '💀', '🎃'];
+
+// --- Состояние ---
 let profile = JSON.parse(localStorage.getItem('hub_profile')) || {
-  name: 'Игрок', xp: 0, lvl: 1, theme: 'dark', achievements: []
+  name: 'Игрок', xp: 0, lvl: 1, theme: 'dark', achievements: [], avatar: '👤'
 };
+if (!profile.avatar) profile.avatar = '👤'; // Защита для старых профилей
+
+let currentCategory = 'all';
+let searchQuery = '';
 
 const ALL_ACH = [
   { id: 'first_step', name: 'Первый шаг', desc: 'Запустить любую игру', icon: '👣' },
@@ -156,19 +218,58 @@ const ALL_ACH = [
   { id: 'racer_1000', name: 'Гонщик', desc: 'Проехать 1000 метров в Гонках', icon: '🏁' }
 ];
 
-function updateUI() {
-  document.documentElement.setAttribute('data-theme', profile.theme);
-  document.getElementById('pName').textContent = profile.name;
-  document.getElementById('pLvl').textContent = 'Ур. ' + profile.lvl;
-  
-  const xpNeeded = profile.lvl * 100;
-  const pct = Math.min(100, (profile.xp / xpNeeded) * 100);
-  document.getElementById('xpFill').style.width = pct + '%';
-  document.getElementById('xpText').textContent = profile.xp + ' / ' + xpNeeded;
+// --- Инициализация UI ---
+function initCategoryTabs() {
+  const container = document.getElementById('categoryTabs');
+  container.innerHTML = '';
+  CATEGORIES.forEach(cat => {
+    const btn = document.createElement('button');
+    btn.className = 'cat-btn' + (currentCategory === cat.id ? ' active' : '');
+    btn.textContent = cat.name;
+    btn.onclick = () => {
+      currentCategory = cat.id;
+      document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      renderGames();
+    };
+    container.appendChild(btn);
+  });
+}
 
+function initAvatarModal() {
+  const grid = document.getElementById('avatarGrid');
+  grid.innerHTML = '';
+  AVAILABLE_AVATARS.forEach(av => {
+    const item = document.createElement('div');
+    item.className = 'avatar-item' + (profile.avatar === av ? ' active' : '');
+    item.textContent = av;
+    item.onclick = () => {
+      profile.avatar = av;
+      saveProfile();
+      updateUI();
+      closeModal('modalAvatar');
+    };
+    grid.appendChild(item);
+  });
+}
+
+// --- Рендер игр ---
+function renderGames() {
   const list = document.getElementById('gameList');
   list.innerHTML = '';
-  GAMES.forEach(g => {
+  
+  const filtered = GAMES.filter(g => {
+    const matchCat = currentCategory === 'all' || g.category === currentCategory;
+    const matchSearch = g.title.toLowerCase().includes(searchQuery) || g.desc.toLowerCase().includes(searchQuery);
+    return matchCat && matchSearch;
+  });
+
+  if (filtered.length === 0) {
+    list.innerHTML = '<div style="grid-column: 1/-1; text-align:center; color:var(--text-muted); padding:40px;">Игры не найдены 😢</div>';
+    return;
+  }
+
+  filtered.forEach(g => {
     const best = localStorage.getItem('best_' + g.id) || 0;
     const card = document.createElement('a');
     card.href = g.file;
@@ -187,6 +288,22 @@ function updateUI() {
   });
 }
 
+// --- Обновление UI ---
+function updateUI() {
+  document.documentElement.setAttribute('data-theme', profile.theme);
+  document.getElementById('avatar').textContent = profile.avatar;
+  document.getElementById('pName').textContent = profile.name;
+  document.getElementById('pLvl').textContent = 'Ур. ' + profile.lvl;
+  
+  const xpNeeded = profile.lvl * 100;
+  const pct = Math.min(100, (profile.xp / xpNeeded) * 100);
+  document.getElementById('xpFill').style.width = pct + '%';
+  document.getElementById('xpText').textContent = profile.xp + ' / ' + xpNeeded;
+
+  renderGames();
+}
+
+// --- Достижения ---
 function unlockAch(id) {
   if (profile.achievements.includes(id)) return;
   profile.achievements.push(id);
@@ -220,6 +337,7 @@ function renderAchievements() {
   });
 }
 
+// --- Таблица лидеров ---
 function renderLeaderboard() {
   const list = document.getElementById('lbList');
   list.innerHTML = '';
@@ -235,10 +353,11 @@ function renderLeaderboard() {
   });
   
   if (list.children.length === 0) {
-    list.innerHTML = '<p style="color:var(--text-muted);text-align:center;">Пока нет рекордов. Сыграй в игру!</p>';
+    list.innerHTML = '<p style="color:var(--text-muted);text-align:center;padding:20px;">Пока нет рекордов. Сыграй в игру!</p>';
   }
 }
 
+// --- Утилиты ---
 function saveProfile() {
   localStorage.setItem('hub_profile', JSON.stringify(profile));
 }
@@ -277,12 +396,14 @@ function openModal(id) {
   document.getElementById(id).classList.add('show');
   if (id === 'modalAch') renderAchievements();
   if (id === 'modalLb') renderLeaderboard();
+  if (id === 'modalAvatar') initAvatarModal();
 }
 
 function closeModal(id) {
   document.getElementById(id).classList.remove('show');
 }
 
+// --- API для игр ---
 window.HubAPI = {
   submitScore: function(gameId, score) {
     const current = parseInt(localStorage.getItem('best_' + gameId) || 0);
@@ -304,10 +425,14 @@ window.addEventListener('message', (e) => {
   }
 });
 
-document.addEventListener('DOMContentLoaded', () => {
-  updateUI();
+// --- Поиск ---
+document.getElementById('searchInput').addEventListener('input', (e) => {
+  searchQuery = e.target.value.toLowerCase();
+  renderGames();
 });
 
+// --- Запуск ---
+initCategoryTabs();
 updateUI();
 </script>
 
