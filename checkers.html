@@ -94,7 +94,7 @@ canvas.thinking{opacity:0.7;filter:blur(2px);pointer-events:none}
   <!-- Стартовый экран -->
   <div id="startScreen">
     <h1>ШАШКИ</h1>
-    <p>Правило обязательного битья включено</p>
+    <p>Правила русских шашек:<br>Дамки ходят по всей диагонали.<br>Обычные шашки бьют назад.</p>
     <div style="display:flex; flex-direction:column; gap:10px;">
       <button class="btn" onclick="initGame('pve')">🤖 Играть с Ботом</button>
       <button class="btn" onclick="initGame('pvp')" style="background:#444; box-shadow:none;">👥 Игра на двоих</button>
@@ -115,11 +115,11 @@ let CELL_SIZE = 0;
 let W = 0, H = 0;
 
 let board = [];
-let turn = 1; // 1 - белые (игрок), 2 - черные (бот/игрок)
+let turn = 1; 
 let selectedPiece = null;
 let validMoves = [];
 let gameOver = false;
-let gameMode = 'pve'; // 'pve' или 'pvp'
+let gameMode = 'pve'; 
 let isAiThinking = false;
 
 const COLORS = {
@@ -247,13 +247,11 @@ function drawBoard() {
       ctx.fillStyle = (r + c) % 2 === 0 ? COLORS.boardLight : COLORS.boardDark;
       ctx.fillRect(c * CELL_SIZE, r * CELL_SIZE, CELL_SIZE, CELL_SIZE);
       
-      // Подсветка выбранной
       if (selectedPiece && selectedPiece.r === r && selectedPiece.c === c) {
         ctx.fillStyle = COLORS.select;
         ctx.fillRect(c * CELL_SIZE, r * CELL_SIZE, CELL_SIZE, CELL_SIZE);
       }
       
-      // Подсветка ходов
       const move = validMoves.find(m => m.r === r && m.c === c);
       if (move) {
         ctx.beginPath();
@@ -264,7 +262,6 @@ function drawBoard() {
     }
   }
   
-  // Рисуем шашки
   for (let r = 0; r < 8; r++) {
     for (let c = 0; c < 8; c++) {
       const piece = board[r][c];
@@ -283,7 +280,6 @@ function drawPiece(r, c, piece) {
   const isWhite = piece === 1 || piece === 3;
   const isKing = piece === 3 || piece === 4;
   
-  // Тень
   ctx.shadowBlur = 15;
   ctx.shadowColor = isWhite ? COLORS.white : COLORS.black;
   
@@ -292,14 +288,12 @@ function drawPiece(r, c, piece) {
   ctx.fillStyle = isWhite ? COLORS.white : COLORS.black;
   ctx.fill();
   
-  // Блик
   ctx.shadowBlur = 0;
   ctx.beginPath();
   ctx.arc(x - radius*0.2, y - radius*0.2, radius*0.6, 0, Math.PI * 2);
   ctx.fillStyle = 'rgba(255,255,255,0.25)';
   ctx.fill();
   
-  // Дамка
   if (isKing) {
     ctx.beginPath();
     ctx.arc(x, y, radius * 0.5, 0, Math.PI * 2);
@@ -311,7 +305,7 @@ function drawPiece(r, c, piece) {
   }
 }
 
-// --- ЛОГИКА ДВИЖЕНИЯ ---
+// --- ЛОГИКА (ПРАВИЛА РУССКИХ ШАШЕК) ---
 function getValidMoves(r, c) {
   const piece = board[r][c];
   if (piece === 0) return [];
@@ -320,30 +314,70 @@ function getValidMoves(r, c) {
   const isKing = piece === 3 || piece === 4;
   const moves = [];
   
-  const dirs = isKing ? [[-1,-1],[-1,1],[1,-1],[1,1]] : (isWhite ? [[-1,-1],[-1,1]] : [[1,-1],[1,1]]);
-  
-  // 1. Проверка на взятие
-  for (let [dr, dc] of dirs) {
-    const r1 = r + dr, c1 = c + dc;
-    const r2 = r + dr*2, c2 = c + dc*2;
+  // 1. Проверка на взятие (обязательное, можно бить назад)
+  const captureDirs = [[-1,-1],[-1,1],[1,-1],[1,1]];
+  for (let [dr, dc] of captureDirs) {
+    let nr = r + dr, nc = c + dc;
+    let enemyFound = false;
+    let enemyR = -1, enemyC = -1;
     
-    if (r2 >= 0 && r2 < 8 && c2 >= 0 && c2 < 8) {
-      const target = board[r1][c1];
-      const land = board[r2][c2];
+    while (nr >= 0 && nr < 8 && nc >= 0 && nc < 8) {
+      const target = board[nr][nc];
       
-      if (target !== 0 && (target === 1 || target === 3) !== isWhite && land === 0) {
-        moves.push({ r: r2, c: c2, capture: { r: r1, c: c1 } });
+      if (target === 0) {
+        if (enemyFound) {
+          // Нашли пустую клетку за врагом - можно бить
+          moves.push({ r: nr, c: nc, capture: { r: enemyR, c: enemyC } });
+          // Если это не дамка, дальше бить с этой клетки нельзя
+          if (!isKing) break;
+        }
+      } else {
+        const targetIsWhite = target === 1 || target === 3;
+        if (targetIsWhite === isWhite) {
+          // Своя шашка - блокирует
+          break;
+        } else {
+          // Чужая шашка
+          if (enemyFound) {
+            // Уже нашли одного врага, второй блокирует
+            break;
+          }
+          enemyFound = true;
+          enemyR = nr;
+          enemyC = nc;
+        }
       }
+      nr += dr;
+      nc += dc;
     }
   }
   
+  // Если есть взятия, обычные ходы запрещены
   if (moves.length > 0) return moves;
   
   // 2. Обычные ходы
-  for (let [dr, dc] of dirs) {
-    const nr = r + dr, nc = c + dc;
-    if (nr >= 0 && nr < 8 && nc >= 0 && nc < 8 && board[nr][nc] === 0) {
-      moves.push({ r: nr, c: nc, capture: null });
+  if (isKing) {
+    // Дамка ходит как слон (по всей диагонали)
+    for (let [dr, dc] of captureDirs) {
+      let nr = r + dr, nc = c + dc;
+      while (nr >= 0 && nr < 8 && nc >= 0 && nc < 8) {
+        if (board[nr][nc] === 0) {
+          moves.push({ r: nr, c: nc, capture: null });
+        } else {
+          break; 
+        }
+        nr += dr;
+        nc += dc;
+      }
+    }
+  } else {
+    // Обычная шашка ходит только вперед на 1 клетку
+    const moveDirs = isWhite ? [[-1,-1],[-1,1]] : [[1,-1],[1,1]];
+    for (let [dr, dc] of moveDirs) {
+      const nr = r + dr, nc = c + dc;
+      if (nr >= 0 && nr < 8 && nc >= 0 && nc < 8 && board[nr][nc] === 0) {
+        moves.push({ r: nr, c: nc, capture: null });
+      }
     }
   }
   
@@ -390,7 +424,7 @@ function checkWin() {
 // --- ИГРОВОЙ ЦИКЛ (КЛИКИ) ---
 cv.addEventListener('pointerdown', (e) => {
   if (gameOver || isAiThinking) return;
-  if (gameMode === 'pve' && turn === 2) return; // Блокируем клики во время хода бота
+  if (gameMode === 'pve' && turn === 2) return; 
   
   const rect = cv.getBoundingClientRect();
   const x = e.clientX - rect.left;
@@ -404,7 +438,6 @@ cv.addEventListener('pointerdown', (e) => {
   const isWhite = piece === 1 || piece === 3;
   const isBlack = piece === 2 || piece === 4;
   
-  // Клик по своей шашке
   if ((turn === 1 && isWhite) || (turn === 2 && isBlack)) {
     selectedPiece = { r, c };
     validMoves = getValidMoves(r, c);
@@ -412,7 +445,6 @@ cv.addEventListener('pointerdown', (e) => {
     return;
   }
   
-  // Клик по ходу
   if (selectedPiece) {
     const move = validMoves.find(m => m.r === r && m.c === c);
     if (move) {
@@ -426,7 +458,6 @@ cv.addEventListener('pointerdown', (e) => {
   drawBoard();
 });
 
-// Выполнение хода (общая функция для игрока и бота)
 function executeMove(fromR, fromC, move) {
   const pieceToMove = board[fromR][fromC];
   board[fromR][fromC] = 0;
@@ -457,7 +488,6 @@ function executeMove(fromR, fromC, move) {
       drawBoard();
       updateHUD();
     } else {
-      // Бот продолжает бить
       setTimeout(() => executeMove(move.r, move.c, nextMoves.find(m => m.capture)), 500);
     }
     return;
@@ -468,7 +498,6 @@ function executeMove(fromR, fromC, move) {
   checkWin();
   drawBoard();
   
-  // Запуск хода бота
   if (gameMode === 'pve' && turn === 2 && !gameOver) {
     isAiThinking = true;
     document.getElementById('aiThinking').style.display = 'block';
@@ -518,7 +547,6 @@ function makeAiMove() {
   let bestMove = allMoves[0];
   let bestScore = -Infinity;
   
-  // Глубина 2: Бот делает ход, смотрит лучший ответ игрока, оценивает позицию
   for (let move of allMoves) {
     const boardClone = board.map(row => [...row]);
     applyMoveToBoard(boardClone, move);
@@ -560,9 +588,9 @@ function applyMoveToBoard(b, move) {
   b[move.fromR][move.fromC] = 0;
   if (move.capture) b[move.capture.r][move.capture.c] = 0;
   
-  // Превращение
   let finalPiece = piece;
   if (piece === 2 && move.r === 7) finalPiece = 4;
+  if (piece === 1 && move.r === 0) finalPiece = 3;
   b[move.r][move.c] = finalPiece;
 }
 
@@ -571,13 +599,11 @@ function evaluateBoard(b) {
   for(let r=0; r<8; r++) {
     for(let c=0; c<8; c++) {
       const p = b[r][c];
-      // Бот (Черные, 2 и 4) хочет максимизировать счет
       if (p === 2) score += 10;
-      if (p === 4) score += 30; // Дамки ценнее
+      if (p === 4) score += 30;
       if (p === 1) score -= 10;
       if (p === 3) score -= 30;
       
-      // Продвижение к другому краю
       if (p === 2) score += r * 0.5; 
       if (p === 1) score -= (7 - r) * 0.5;
     }
