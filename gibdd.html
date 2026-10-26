@@ -11,7 +11,7 @@ html, body { width: 100vw; height: 100vh; overflow: hidden; background: #0f1115;
 
 /* Шапка */
 .top-bar { height: 70px; background: #14171c; border-bottom: 2px solid #21262e; display: flex; align-items: center; justify-content: space-between; padding: 0 20px; z-index: 10; }
-.logo { font-size: 24px; font-weight: 900; color: #fff; letter-spacing: 1px; }
+.logo { font-size: 24px; font-weight: 900; color: #fff; letter-spacing: 1px; margin-left: 160px; /* Отступ для кнопки Назад */ }
 .logo span { color: #ffd86b; }
 .balance { font-size: 16px; font-weight: 800; color: #5bff9d; background: #1a1e24; padding: 10px 20px; border-radius: 8px; border: 1px solid #2a303a; display: flex; align-items: center; gap: 8px; }
 .balance .coin { font-size: 20px; }
@@ -19,8 +19,8 @@ html, body { width: 100vw; height: 100vh; overflow: hidden; background: #0f1115;
 /* Основной контент */
 .main-content { display: flex; flex: 1; overflow: hidden; }
 
-/* Инвентарь (Слева) */
-.inventory { width: 320px; background: #101217; border-right: 1px solid #21262e; display: flex; flex-direction: column; }
+/* Инвентарь */
+.inventory { width: 320px; background: #101217; border-right: 1px solid #21262e; display: flex; flex-direction: column; flex-shrink: 0; }
 .inv-header { padding: 16px; font-size: 14px; font-weight: 800; color: #8b929e; text-transform: uppercase; border-bottom: 1px solid #21262e; text-align: center; display: flex; justify-content: space-between; align-items: center; }
 .inv-header .count { background: #f27a15; color: #fff; padding: 2px 8px; border-radius: 10px; font-size: 12px; }
 .inv-list { flex: 1; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
@@ -31,7 +31,7 @@ html, body { width: 100vw; height: 100vh; overflow: hidden; background: #0f1115;
 .inv-sell { background: #2a303a; border: none; color: #ffd86b; font-weight: 800; font-size: 12px; padding: 6px 12px; border-radius: 6px; cursor: pointer; transition: 0.2s; }
 .inv-sell:hover { background: #f27a15; color: #fff; }
 
-/* Игровая зона (Справа) */
+/* Игровая зона */
 .game-zone { flex: 1; display: flex; flex-direction: column; align-items: center; padding: 20px; overflow-y: auto; position: relative; background-image: radial-gradient(circle at 50% 0%, rgba(255,216,107,0.05), transparent 60%); }
 
 /* Рулетка */
@@ -68,12 +68,41 @@ html, body { width: 100vw; height: 100vh; overflow: hidden; background: #0f1115;
 .result-price { font-size: 28px; font-weight: 900; color: #5bff9d; margin-bottom: 30px; }
 .modal-box button { background: linear-gradient(135deg, #5be3ff, #5bff9d); color: #001; border: none; padding: 16px 40px; border-radius: 12px; font-weight: 900; font-size: 16px; cursor: pointer; transition: 0.2s; width: 100%; }
 .modal-box button:hover { filter: brightness(1.1); }
+
+/* --- АДАПТИВ ДЛЯ ТЕЛЕФОНОВ --- */
+@media (max-width: 768px) {
+    .logo { margin-left: 0; font-size: 18px; text-align: center; }
+    .top-bar { flex-direction: column; height: auto; padding: 15px; gap: 10px; }
+    
+    /* Кнопка Назад становится маленькой */
+    .back-hub-btn {
+        font-size: 12px !important;
+        padding: 8px 16px !important;
+        top: 15px !important;
+        left: 10px !important;
+    }
+
+    .main-content { flex-direction: column; }
+    
+    /* Инвентарь теперь сверху, но не на весь экран */
+    .inventory { width: 100%; height: 220px; border-right: none; border-bottom: 1px solid #21262e; }
+    .inv-list { flex-direction: row; overflow-x: auto; overflow-y: hidden; }
+    .inv-item { min-width: 200px; flex-direction: column; align-items: flex-start; justify-content: center; }
+    
+    .game-zone { padding: 10px; }
+    .roulette-container { height: 100px; margin-top: 10px; }
+    .roulette-item { width: 90px; height: 80px; }
+    .roulette-item .plate { font-size: 14px; }
+    .roulette-item .price { font-size: 9px; }
+    
+    .upgrades { flex-direction: column; gap: 10px; margin-top: 20px; }
+    .spin-btn { margin-top: 20px; padding: 15px 40px; font-size: 16px; width: 100%; }
+}
 </style>
 </head>
 <body>
 
 <div id="app">
-  <!-- Шапка -->
   <div class="top-bar">
     <div class="logo">ГИБДД <span>РУЛЕТКА</span></div>
     <div class="balance">
@@ -83,50 +112,41 @@ html, body { width: 100vw; height: 100vh; overflow: hidden; background: #0f1115;
   </div>
 
   <div class="main-content">
-    <!-- Инвентарь -->
     <div class="inventory">
       <div class="inv-header">
         <span>Мои номера</span>
         <span class="count" id="invCount">0</span>
       </div>
       <div class="inv-list" id="invList">
-        <!-- Сюда падают номера -->
       </div>
     </div>
 
-    <!-- Игровая зона -->
     <div class="game-zone">
-      
-      <!-- Рулетка -->
       <div class="roulette-container">
         <div class="pointer"></div>
         <div class="roulette-track" id="rouletteTrack"></div>
       </div>
 
-      <!-- Кнопка -->
       <button class="spin-btn" id="spinBtn" onclick="startSpin()">КРУТИТЬ ЗА 50 🪙</button>
 
-      <!-- Прокачка -->
       <div class="upgrades">
         <div class="upg-card">
           <div class="upg-icon">🍀</div>
           <div class="upg-title">Удача (Ур. <span id="luckLvl">0</span>)</div>
-          <div class="upg-desc">Повышает шанс выпадения редких и дорогих номеров</div>
+          <div class="upg-desc">Повышает шанс выпадения редких номеров</div>
           <button class="upg-btn" id="btnLuck" onclick="upgradeLuck()">Прокачать за <span id="luckCost">500</span> 🪙</button>
         </div>
         <div class="upg-card">
           <div class="upg-icon">💸</div>
           <div class="upg-title">Продажа (Ур. <span id="sellLvl">0</span>)</div>
-          <div class="upg-desc">Увеличивает цену продажи номеров в инвентаре на 10%</div>
+          <div class="upg-desc">Увеличивает цену продажи номеров в инвентаре</div>
           <button class="upg-btn" id="btnSell" onclick="upgradeSell()">Прокачать за <span id="sellCost">800</span> 🪙</button>
         </div>
       </div>
-
     </div>
   </div>
 </div>
 
-<!-- Модалка выигрыша -->
 <div class="modal" id="winModal">
   <div class="modal-box">
     <h2>Выпал номер!</h2>
@@ -137,7 +157,6 @@ html, body { width: 100vw; height: 100vh; overflow: hidden; background: #0f1115;
 </div>
 
 <script>
-// --- КОНФИГ НОМЕРОВ (Редкости) ---
 const PLATES = [
   { pattern: 'Х000ХХ', rarity: 'Обычный', basePrice: 100, weight: 50, color: '#8b929e' },
   { pattern: 'Х111ХХ', rarity: 'Необычный', basePrice: 350, weight: 25, color: '#5bff9d' },
@@ -159,7 +178,6 @@ let sellLvl = parseInt(localStorage.getItem('gibdd_sell') || 0);
 let isSpinning = false;
 const SPIN_COST = 50;
 
-// --- ИНИЦИАЛИЗАЦИЯ ---
 function updateUI() {
   document.getElementById('balanceText').textContent = balance;
   document.getElementById('invCount').textContent = inventory.length;
@@ -193,11 +211,10 @@ function renderInventory() {
   list.innerHTML = '';
   
   if (inventory.length === 0) {
-    list.innerHTML = '<div style="text-align:center; color:#8b929e; font-size:12px; margin-top:20px;">Инвентарь пуст.<br>Крутите рулетку!</div>';
+    list.innerHTML = '<div style="text-align:center; color:#8b929e; font-size:12px; margin-top:20px; width:100%;">Инвентарь пуст.<br>Крутите рулетку!</div>';
     return;
   }
   
-  // Сортируем по цене (дорогие сверху)
   const sorted = [...inventory].sort((a, b) => b.finalPrice - a.finalPrice);
   
   sorted.forEach((item, index) => {
@@ -215,19 +232,15 @@ function renderInventory() {
   });
 }
 
-// --- ГЕНЕРАЦИЯ НОМЕРА ---
 function generateRandomPlate() {
-  const isGov = Math.random() < 0.01; // 1% на правительственный
+  const isGov = Math.random() < 0.01; 
   if (isGov) return PLATES[6].pattern;
   
   let digits = '';
-  // Выбираем паттерн цифр (три одинаковые или рандом)
   const r = Math.random();
   if (r < 0.7) {
-    // Рандомные цифры
     digits = DIGITS[Math.floor(Math.random()*10)] + DIGITS[Math.floor(Math.random()*10)] + DIGITS[Math.floor(Math.random()*10)];
   } else {
-    // Одинаковые (красивые)
     const d = DIGITS[Math.floor(Math.random()*10)];
     digits = d + d + d;
   }
@@ -239,10 +252,8 @@ function generateRandomPlate() {
   return l1 + digits + l2 + l3;
 }
 
-// --- ОПРЕДЕЛЕНИЕ РЕДКОСТИ ---
 function determinePlateInfo(plate) {
   if (plate === 'АМР') return PLATES[6];
-  
   const digits = plate.substring(1, 4);
   
   if (digits[0] === digits[1] && digits[1] === digits[2]) {
@@ -251,11 +262,9 @@ function determinePlateInfo(plate) {
     if (digits === '555') return PLATES[2];
     if (digits === '111') return PLATES[1];
   }
-  
   return PLATES[0];
 }
 
-// --- ПРОКРУТКА ---
 function startSpin() {
   if (isSpinning || balance < SPIN_COST) return;
   
@@ -271,15 +280,13 @@ function startSpin() {
   track.style.transition = 'none';
   track.style.transform = 'translateX(0)';
   
-  // Генерируем ленту (100 элементов)
-  const winIndex = 92; // На каком элементе остановится
+  const winIndex = 92; 
   let winItem = null;
   
   for (let i = 0; i < 100; i++) {
     let plate, info;
     
     if (i === winIndex) {
-      // Генерируем выигрышный (с учетом удачи)
       const luckBonus = luckLvl * 0.05;
       let roll = Math.random() - luckBonus;
       
@@ -294,10 +301,8 @@ function startSpin() {
       plate = info.pattern === 'АМР' ? 'АМР' : generateRandomPlate();
       winItem = { plate, rarity: info.rarity, basePrice: info.basePrice, color: info.color };
     } else {
-      // Обычные элементы для фона
       plate = generateRandomPlate();
-      const tmpInfo = determinePlateInfo(plate);
-      info = tmpInfo;
+      info = determinePlateInfo(plate);
     }
     
     const div = document.createElement('div');
@@ -310,20 +315,16 @@ function startSpin() {
     track.appendChild(div);
   }
   
-  // Запуск анимации
   setTimeout(() => {
     track.style.transition = 'transform 4s cubic-bezier(0.1, 0.7, 0.3, 1)';
-    // 1 элемент = 130px + 10px gap = 140px. Центрируем на winIndex.
     const offset = (winIndex * 140) - (track.parentElement.clientWidth / 2) + 65;
     track.style.transform = `translateX(-${offset}px)`;
   }, 50);
   
-  // Конец
   setTimeout(() => {
     isSpinning = false;
     document.getElementById('spinBtn').textContent = `КРУТИТЬ ЗА ${SPIN_COST} 🪙`;
     
-    // Добавляем в инвентарь (с учетом прокачки продажи)
     const sellMultiplier = 1 + (sellLvl * 0.1);
     const finalPrice = winItem.basePrice * sellMultiplier;
     
@@ -336,7 +337,6 @@ function startSpin() {
       color: winItem.color
     });
     
-    // Показываем модалку
     document.getElementById('dropPlate').textContent = winItem.plate;
     document.getElementById('dropPlate').style.color = '#000';
     document.getElementById('dropPlate').style.border = `2px solid ${winItem.color}`;
@@ -347,7 +347,6 @@ function startSpin() {
   }, 4200);
 }
 
-// --- ПРОДАЖА ---
 function sellItem(id) {
   const idx = inventory.findIndex(i => i.id === id);
   if (idx === -1) return;
@@ -359,7 +358,6 @@ function sellItem(id) {
   updateUI();
 }
 
-// --- ПРОКАЧКА ---
 function upgradeLuck() {
   const cost = 500 + luckLvl * 300;
   if (balance < cost || luckLvl >= 10) return;
@@ -380,9 +378,8 @@ function closeModal() {
   document.getElementById('winModal').classList.remove('show');
 }
 
-// Запуск
 updateUI();
 </script>
-  <script src="back.js"></script>
+<script src="back.js"></script>
 </body>
 </html>
