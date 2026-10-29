@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<title>Неоновые Нарды</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none}
+html,body{width:100vw;height:100vh;overflow:hidden;background:#0a0a12;
+  font-family:-apple-system,'Segoe UI',Roboto,sans-serif;color:#fff;
+  display:flex;justify-content:center;align-items:center}
+
+#app{position:relative;width:100%;max-width:800px;height:100vh;display:flex;flex-direction:column;align-items:center;padding:16px}
+
+/* HUD */
+.hud{width:100%;display:flex;justify-content:space-between;align-items:center;padding:10px;margin-bottom:10px}
+.player-info{display:flex;align-items:center;gap:10px;font-weight:800;font-size:16px}
+.piece-icon{width:20px;height:20px;border-radius:50%;box-shadow:0 0 10px currentColor}
+.piece-icon.white{background:#5be3ff;color:#5be3ff}
+.piece-icon.black{background:#ff5b7f;color:#ff5b7f}
+.dice-area{display:flex;gap:10px;background:rgba(0,0,0,0.5);padding:10px 20px;border-radius:12px;border:1px solid rgba(255,255,255,0.1)}
+.die{width:30px;height:30px;background:#fff;color:#000;border-radius:6px;display:flex;justify-content:center;align-items:center;font-weight:900;font-size:18px;box-shadow:0 2px 10px rgba(0,0,0,0.5)}
+.die.hidden{opacity:0}
+
+/* Доска */
+.board-container{flex:1;display:flex;justify-content:center;align-items:center;width:100%;padding:10px;position:relative}
+canvas{background:#1a1a2e;border-radius:16px;box-shadow:0 0 40px rgba(160,107,255,0.2);border:4px solid #333;max-width:100%;max-height:100%;touch-action:none;cursor:pointer}
+
+/* Кнопки */
+.controls{display:flex;gap:10px;margin-bottom:20px}
+.btn{padding:12px 30px;border:none;border-radius:12px;font-size:16px;font-weight:900;
+  font-family:inherit;cursor:pointer;transition:0.2s;background:linear-gradient(135deg,#a06bff,#6b3fcf);color:#fff;box-shadow:0 5px 15px rgba(160,107,255,0.4)}
+.btn:hover:not(:disabled){filter:brightness(1.15);transform:scale(1.05)}
+.btn:disabled{opacity:0.5;cursor:not-allowed;transform:none}
+
+/* Кнопка В Хаб */
+.back-hub-btn {
+  position: fixed; top: 20px; left: 20px; z-index: 2147483647;
+  background: linear-gradient(135deg, #a06bff, #6b3fcf); color: #fff; text-decoration: none;
+  font-weight: 900; font-size: 16px; padding: 12px 24px; border-radius: 30px;
+  border: 3px solid #fff; box-shadow: 0 0 20px rgba(160,107,255,0.8);
+  display: flex; align-items: center; gap: 8px; font-family: inherit;
+  animation: pulseBtn 1.5s infinite; transition: transform 0.2s;
+}
+.back-hub-btn:hover { transform: scale(1.1); background: linear-gradient(135deg, #b07cff, #7b4fdf); }
+@keyframes pulseBtn {
+  0% { box-shadow: 0 0 0 0 rgba(160, 107, 255, 0.8); }
+  70% { box-shadow: 0 0 0 15px rgba(160, 107, 255, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(160, 107, 255, 0); }
+}
+</style>
+</head>
+<body>
+
+<a href="index.html" class="back-hub-btn">🏠 В Хаб</a>
+
+<div id="app">
+  <div class="hud">
+    <div class="player-info" id="pBlack"><div class="piece-icon black"></div> Бот</div>
+    <div class="dice-area" id="diceArea">
+      <div class="die hidden" id="d1">-</div>
+      <div class="die hidden" id="d2">-</div>
+    </div>
+    <div class="player-info" id="pWhite"><div class="piece-icon white"></div> Вы</div>
+  </div>
+
+  <div class="board-container">
+    <canvas id="cv"></canvas>
+  </div>
+
+  <div class="controls">
+    <button class="btn" id="rollBtn" onclick="rollDice()">БРОСИТЬ КУБИКИ</button>
+    <button class="btn" onclick="initGame()" style="background:#444; box-shadow:none;">Сброс</button>
+  </div>
+</div>
+
+<script>
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+
+// Размеры
+const W = 800;
+const H = 600;
+const MARGIN = 30;
+const BOARD_W = W - MARGIN * 2;
+const BOARD_H = H - MARGIN * 2;
+const POINT_W = BOARD_W / 12;
+const POINT_H = BOARD_H * 0.4;
+
+// Состояние
+let board = []; // 24 пункта. Индекс 0-11 (верхняя часть, справа налево), 12-23 (нижняя часть, слева направо)
+let bar = { 1: 0, 2: 0 }; // Выбитые шашки (1 - белые, 2 - черные)
+let off = { 1: 0, 2: 0 }; // Снятые с доски
+let turn = 1; // 1 - белые (игрок), 2 - черные (бот)
+let dice = [];
+let availableMoves = [];
+let selectedPoint = -1;
+let isRolling = false;
+
+// Настройка канваса
+function resize() {
+  const container = cv.parentElement.getBoundingClientRect();
+  const scale = Math.min(container.width / W, container.height / H);
+  const dpr = window.devicePixelRatio || 1;
+  
+  cv.width = W * dpr;
+  cv.height = H * dpr;
+  cv.style.width = (W * scale) + 'px';
+  cv.style.height = (H * scale) + 'px';
+  
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  drawBoard();
+}
+window.addEventListener('resize', resize);
+
+// Инициализация
+function initGame() {
+  board = Array(24).fill(null).map(() => ({ player: 0, count: 0 }));
+  
+  // Расстановка (стандартная)
+  // 1 = Белые (идут 23 -> 0)
+  // 2 = Черные (идут 0 -> 23)
+  
+  // Пункт 0 (верхний левый, для черных) - 2 шашки
+  board[0] = { player: 2, count: 2 };
+  // Пункт 11 (верхний правый) - 5 шашек
+  board[11] = { player: 1, count: 5 };
+  // Пункт 12 (нижний левый) - 5 шашек
+  board[12] = { player: 2, count: 5 };
+  // Пункт 23 (нижний правый) - 2 шашки
+  board[23] = { player: 1, count: 2 };
+  
+  // Остальные
+  board[16] = { player: 2, count: 3 };
+  board[18] = { player: 2, count: 5 };
+  board[7] = { player: 1, count: 3 };
+  board[5] = { player: 1, count: 5 };
+  
+  // Выбитые
+  bar = { 1: 0, 2: 0 };
+  off = { 1: 0, 2: 0 };
+  
+  turn = 1;
+  dice = [];
+  availableMoves = [];
+  selectedPoint = -1;
+  isRolling = false;
+  
+  updateUI();
+  resize();
+}
+
+function updateUI() {
+  document.getElementById('rollBtn').disabled = (dice.length > 0 && !isRolling) || turn === 2;
+  document.getElementById('pWhite').style.opacity = turn === 1 ? 1 : 0.5;
+  document.getElementById('pBlack').style.opacity = turn === 2 ? 1 : 0.5;
+}
+
+// Бросок кубиков
+function rollDice() {
+  if (isRolling) return;
+  isRolling = true;
+  
+  let rolls = 0;
+  const interval = setInterval(() => {
+    document.getElementById('d1').textContent = Math.floor(Math.random() * 6) + 1;
+    document.getElementById('d2').textContent = Math.floor(Math.random() * 6) + 1;
+    document.getElementById('d1').classList.remove('hidden');
+    document.getElementById('d2').classList.remove('hidden');
+    rolls++;
+    
+    if (rolls > 10) {
+      clearInterval(interval);
+      dice = [
+        Math.floor(Math.random() * 6) + 1,
+        Math.floor(Math.random() * 6) + 1
+      ];
+      
+      document.getElementById('d1').textContent = dice[0];
+      document.getElementById('d2').textContent = dice[1];
+      
+      // Дубли (камешек)
+      if (dice[0] === dice[1]) {
+        dice = [dice[0], dice[0], dice[0], dice[0]];
+      }
+      
+      isRolling = false;
+      calculateMoves();
+      
+      if (turn === 2 && availableMoves.length > 0) {
+        setTimeout(makeAiMove, 800);
+      } else if (turn === 1 && availableMoves.length === 0) {
+        // Если ходов нет, пропускаем
+        setTimeout(endTurn, 1000);
+      }
+      
+      updateUI();
+      drawBoard();
+    }
+  }, 50);
+}
+
+// Расчет возможных ходов (упрощенный)
+function calculateMoves() {
+  availableMoves = [];
+  
+  if (turn === 1 && bar[1] > 0) {
+    // Если есть выбитые, нужно сначала вводить их
+    for (let d of dice) {
+      let target = 24 - d;
+      if (board[target].player === 1 || board[target].player === 0) {
+        availableMoves.push({ from: -1, to: target, die: d });
+      }
+    }
+    return;
+  }
+  
+  // Иначе проверяем все возможные ходы
+  for (let i = 0; i < 24; i++) {
+    if (board[i].player === turn && board[i].count > 0) {
+      for (let d of dice) {
+        let to = turn === 1 ? i - d : i + d;
+        
+        if (to >= 0 && to < 24) {
+          if (board[to].player === turn || board[to].player === 0) {
+            // Проверка, нет ли блокировки (2+ шашки противника)
+            if (board[to].player !== (turn === 1 ? 2 : 1) || board[to].count < 2) {
+              availableMoves.push({ from: i, to: to, die: d });
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+// Обработка кликов
+cv.addEventListener('pointerdown', (e) => {
+  if (turn !== 1 || isRolling || dice.length === 0) return;
+  
+  const rect = cv.getBoundingClientRect();
+  const x = (e.clientX - rect.left) / (rect.width / W);
+  const y = (e.clientY - rect.top) / (rect.height / H);
+  
+  // Проверяем, куда кликнули
+  const clickedPoint = getPointFromCoords(x, y);
+  if (clickedPoint === -1) return;
+  
+  // Если кликнули по своему пункту (выбор)
+  if (board[clickedPoint].player === 1 && board[clickedPoint].count > 0) {
+    selectedPoint = clickedPoint;
+    drawBoard();
+    return;
+  }
+  
+  // Если выбрали пункт и кликнули по ходу
+  if (selectedPoint !== -1) {
+    const move = availableMoves.find(m => m.from === selectedPoint && m.to === clickedPoint);
+    if (move) {
+      executeMove(move);
+      return;
+    }
+  }
+});
+
+function getPointFromCoords(x, y) {
+  // Верхняя половина
+  if (y > MARGIN && y < MARGIN + POINT_H) {
+    if (x > MARGIN && x < MARGIN + BOARD_W) {
+      let col = Math.floor((x - MARGIN) / POINT_W);
+      return col;
+    }
+  }
+  // Нижняя половина
+  if (y > MARGIN + BOARD_H - POINT_H && y < MARGIN + BOARD_H) {
+    if (x > MARGIN && x < MARGIN + BOARD_W) {
+      let col = Math.floor((x - MARGIN) / POINT_W);
+      // Нижняя часть идет справа налево (12-23)
+      return 11 - col + 12;
+    }
+  }
+  return -1;
+}
+
+function executeMove(move) {
+  // Удаляем кубик
+  const dieIdx = dice.indexOf(move.die);
+  if (dieIdx > -1) dice.splice(dieIdx, 1);
+  
+  // Если ввод выбитых
+  if (move.from === -1) {
+    bar[1]--;
+    board[move.to] = { player: 1, count: board[move.to].count + 1 };
+  } else {
+    // Обычный ход
+    board[move.from].count--;
+    if (board[move.from].count === 0) board[move.from].player = 0;
+    
+    // Если на целевом пункте один враг - выбиваем
+    if (board[move.to].player === 2 && board[move.to].count === 1) {
+      bar[2]++;
+      board[move.to] = { player: 1, count: 1 };
+    } else {
+      if (board[move.to].count === 0) board[move.to].player = 1;
+      board[move.to].count++;
+    }
+  }
+  
+  selectedPoint = -1;
+  drawBoard();
+  
+  // Пересчитываем ходы (если остались кубики)
+  if (dice.length > 0) {
+    calculateMoves();
+    if (availableMoves.length === 0) {
+      endTurn();
+    }
+  } else {
+    endTurn();
+  }
+}
+
+function endTurn() {
+  turn = turn === 1 ? 2 : 1;
+  dice = [];
+  document.getElementById('d1').classList.add('hidden');
+  document.getElementById('d2').classList.add('hidden');
+  availableMoves = [];
+  updateUI();
+  
+  if (turn === 2) {
+    rollDice();
+  }
+}
+
+function makeAiMove() {
+  if (availableMoves.length === 0) {
+    endTurn();
+    return;
+  }
+  
+  // Бот выбирает случайный ход (или самый агрессивный)
+  const move = availableMoves[Math.floor(Math.random() * availableMoves.length)];
+  
+  // Применяем ход (упрощенно)
+  const dieIdx = dice.indexOf(move.die);
+  if (dieIdx > -1) dice.splice(dieIdx, 1);
+  
+  if (move.from === -1) {
+    bar[2]--;
+    board[move.to] = { player: 2, count: board[move.to].count + 1 };
+  } else {
+    board[move.from].count--;
+    if (board[move.from].count === 0) board[move.from].player = 0;
+    
+    if (board[move.to].player === 1 && board[move.to].count === 1) {
+      bar[1]++;
+      board[move.to] = { player: 2, count: 1 };
+    } else {
+      if (board[move.to].count === 0) board[move.to].player = 2;
+      board[move.to].count++;
+    }
+  }
+  
+  drawBoard();
+  
+  if (dice.length > 0) {
+    calculateMoves();
+    if (availableMoves.length > 0) {
+      setTimeout(makeAiMove, 800);
+    } else {
+      endTurn();
+    }
+  } else {
+    endTurn();
+  }
+}
+
+// --- ОТРИСОВКА ---
+function drawBoard() {
+  ctx.clearRect(0, 0, W, H);
+  
+  // Фон доски
+  ctx.fillStyle = '#1a1a2e';
+  ctx.fillRect(0, 0, W, H);
+  
+  // Рамка
+  ctx.strokeStyle = '#333';
+  ctx.lineWidth = 10;
+  ctx.strokeRect(MARGIN, MARGIN, BOARD_W, BOARD_H);
+  
+  // Пункты (треугольники)
+  for (let i = 0; i < 12; i++) {
+    const x = MARGIN + i * POINT_W;
+    const isEven = i % 2 === 0;
+    
+    // Верхние
+    ctx.fillStyle = isEven ? '#ff5b7f' : '#5be3ff';
+    ctx.beginPath();
+    ctx.moveTo(x, MARGIN);
+    ctx.lineTo(x + POINT_W, MARGIN);
+    ctx.lineTo(x + POINT_W / 2, MARGIN + POINT_H);
+    ctx.fill();
+    
+    // Нижние
+    ctx.fillStyle = isEven ? '#5be3ff' : '#ff5b7f';
+    ctx.beginPath();
+    ctx.moveTo(x, MARGIN + BOARD_H);
+    ctx.lineTo(x + POINT_W, MARGIN + BOARD_H);
+    ctx.lineTo(x + POINT_W / 2, MARGIN + BOARD_H - POINT_H);
+    ctx.fill();
+  }
+  
+  // Бар (по центру)
+  ctx.fillStyle = '#2a2a3e';
+  ctx.fillRect(W / 2 - 20, MARGIN, 40, BOARD_H);
+  
+  // Шашки
+  for (let i = 0; i < 24; i++) {
+    const p = board[i];
+    if (p.count === 0) continue;
+    
+    for (let j = 0; j < p.count; j++) {
+      let x, y;
+      
+      if (i < 12) {
+        // Верхняя часть
+        x = MARGIN + i * POINT_W + POINT_W / 2;
+        y = MARGIN + 20 + j * 20;
+      } else {
+        // Нижняя часть
+        x = MARGIN + (11 - (i - 12)) * POINT_W + POINT_W / 2;
+        y = MARGIN + BOARD_H - 20 - j * 20;
+      }
+      
+      ctx.beginPath();
+      ctx.arc(x, y, 14, 0, Math.PI * 2);
+      ctx.fillStyle = p.player === 1 ? '#5be3ff' : '#ff5b7f';
+      ctx.fill();
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      
+      // Подсветка выбранной
+      if (selectedPoint === i) {
+        ctx.beginPath();
+        ctx.arc(x, y, 18, 0, Math.PI * 2);
+        ctx.strokeStyle = '#ffd86b';
+        ctx.lineWidth = 3;
+        ctx.stroke();
+      }
+    }
+  }
+  
+  // Подсветка доступных ходов
+  availableMoves.forEach(m => {
+    if (m.from === selectedPoint) {
+      let x, y;
+      if (m.to < 12) {
+        x = MARGIN + m.to * POINT_W + POINT_W / 2;
+        y = MARGIN + POINT_H - 20;
+      } else {
+        x = MARGIN + (11 - (m.to - 12)) * POINT_W + POINT_W / 2;
+        y = MARGIN + BOARD_H - POINT_H + 20;
+      }
+      
+      ctx.beginPath();
+      ctx.arc(x, y, 8, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(91, 255, 157, 0.6)';
+      ctx.fill();
+    }
+  });
+  
+  // Выбитые шашки (сверху и снизу бара)
+  for (let i = 0; i < bar[2]; i++) {
+    ctx.beginPath();
+    ctx.arc(W / 2, MARGIN + 30 + i * 25, 12, 0, Math.PI * 2);
+    ctx.fillStyle = '#ff5b7f';
+    ctx.fill();
+  }
+  for (let i = 0; i < bar[1]; i++) {
+    ctx.beginPath();
+    ctx.arc(W / 2, MARGIN + BOARD_H - 30 - i * 25, 12, 0, Math.PI * 2);
+    ctx.fillStyle = '#5be3ff';
+    ctx.fill();
+  }
+}
+
+// Запуск
+initGame();
+</script>
+<script src="back.js"></script>
+</body>
+</html>
