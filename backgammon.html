@@ -84,19 +84,18 @@ const H = 600;
 const MARGIN = 30;
 const BOARD_W = W - MARGIN * 2;
 const BOARD_H = H - MARGIN * 2;
-const POINT_W = BOARD_W / 12; // 12 треугольников в ряд
-const POINT_H = BOARD_H * 0.45; // Высота треугольника
+const POINT_W = BOARD_W / 12;
+const POINT_H = BOARD_H * 0.45;
 
 // Состояние игры
-let board = []; // 24 пункта. 0-11 (верх), 12-23 (низ). 
-let bar = { 1: 0, 2: 0 }; // Выбитые (1 - белые, 2 - черные)
-let turn = 1; // 1 - белые (игрок), 2 - черные (бот)
+let board = []; 
+let bar = { 1: 0, 2: 0 }; 
+let turn = 1; 
 let dice = [];
 let availableMoves = [];
 let selectedPoint = -1;
 let isRolling = false;
 
-// --- РАЗМЕРЫ ---
 function resize() {
   const container = cv.parentElement.getBoundingClientRect();
   const scale = Math.min(container.width / W, container.height / H);
@@ -112,11 +111,9 @@ function resize() {
 }
 window.addEventListener('resize', resize);
 
-// --- ИНИЦИАЛИЗАЦИЯ ---
 function initGame() {
   board = Array(24).fill(null).map(() => ({ player: 0, count: 0 }));
   
-  // Стандартная расстановка
   board[0] = { player: 2, count: 2 };
   board[11] = { player: 1, count: 5 };
   board[12] = { player: 2, count: 5 };
@@ -144,7 +141,6 @@ function updateUI() {
   document.getElementById('pBlack').style.opacity = turn === 2 ? 1 : 0.5;
 }
 
-// --- БРОСОК КУБИКОВ ---
 function rollDice() {
   if (isRolling) return;
   isRolling = true;
@@ -186,7 +182,6 @@ function rollDice() {
   }, 50);
 }
 
-// --- ЛОГИКА ХОДОВ ---
 function calculateMoves() {
   availableMoves = [];
   
@@ -217,7 +212,7 @@ function calculateMoves() {
   }
 }
 
-// --- ОБРАБОТКА КЛИКОВ ---
+// --- ИСПРАВЛЕННАЯ ОБРАБОТКА КЛИКОВ ---
 cv.addEventListener('pointerdown', (e) => {
   if (turn !== 1 || isRolling || dice.length === 0) return;
   
@@ -228,12 +223,7 @@ cv.addEventListener('pointerdown', (e) => {
   const clickedPoint = getPointFromCoords(x, y);
   if (clickedPoint === -1) return;
   
-  if (board[clickedPoint].player === 1 && board[clickedPoint].count > 0) {
-    selectedPoint = clickedPoint;
-    drawBoard();
-    return;
-  }
-  
+  // 1. Сначала проверяем: если у нас выбрана шашка и мы кликнули туда, куда можно сходить
   if (selectedPoint !== -1) {
     const move = availableMoves.find(m => m.from === selectedPoint && m.to === clickedPoint);
     if (move) {
@@ -241,22 +231,29 @@ cv.addEventListener('pointerdown', (e) => {
       return;
     }
   }
+  
+  // 2. Если это не ход, проверяем, кликнули ли мы по своей шашке, чтобы её выбрать
+  if (board[clickedPoint].player === 1 && board[clickedPoint].count > 0) {
+    // Проверяем, есть ли вообще ходы с этой шашки
+    const hasMoves = availableMoves.some(m => m.from === clickedPoint);
+    if (hasMoves) {
+      selectedPoint = clickedPoint;
+      drawBoard();
+      return;
+    }
+  }
+  
+  // 3. Если кликнули мимо - снимаем выделение
+  selectedPoint = -1;
+  drawBoard();
 });
 
 function getPointFromCoords(x, y) {
   if (x < MARGIN || x > W - MARGIN) return -1;
-  
   const col = Math.floor((x - MARGIN) / POINT_W);
   
-  // Верхняя половина
-  if (y > MARGIN && y < MARGIN + POINT_H) {
-    return col; // 0 - 11
-  }
-  
-  // Нижняя половина
-  if (y > MARGIN + BOARD_H - POINT_H && y < MARGIN + BOARD_H) {
-    return 11 - col + 12; // 12 - 23 (справа налево)
-  }
+  if (y > MARGIN && y < MARGIN + POINT_H) return col;
+  if (y > MARGIN + BOARD_H - POINT_H && y < MARGIN + BOARD_H) return 11 - col + 12;
   
   return -1;
 }
@@ -307,7 +304,6 @@ function endTurn() {
   }
 }
 
-// --- ИИ ---
 function makeAiMove() {
   if (availableMoves.length === 0) {
     endTurn();
@@ -348,34 +344,23 @@ function makeAiMove() {
   }
 }
 
-// --- ОТРИСОВКА (ПОЛНОСТЬЮ ПЕРЕПИСАНА) ---
 function drawBoard() {
   ctx.clearRect(0, 0, W, H);
-  
-  // Фон доски
   ctx.fillStyle = '#1a1a2e';
   ctx.fillRect(0, 0, W, H);
   
-  // Рамка
   ctx.strokeStyle = '#333';
   ctx.lineWidth = 10;
   ctx.strokeRect(MARGIN, MARGIN, BOARD_W, BOARD_H);
   
-  // Центральный бар
   ctx.fillStyle = '#2a2a3e';
   ctx.fillRect(W / 2 - 20, MARGIN, 40, BOARD_H);
 
-  // Рисуем треугольники
   for (let i = 0; i < 12; i++) {
     const x = MARGIN + i * POINT_W;
-    
-    // Цвет чередуется: нечетные - красные, четные - голубые
-    const isTop = i < 6; // Левая половина
-    // В нардах цвета зеркальны относительно центра
     const colorTop = (i % 2 === 0) ? '#ff5b7f' : '#5be3ff';
     const colorBottom = (i % 2 === 0) ? '#5be3ff' : '#ff5b7f';
 
-    // Верхний ряд
     ctx.fillStyle = colorTop;
     ctx.beginPath();
     ctx.moveTo(x, MARGIN);
@@ -383,7 +368,6 @@ function drawBoard() {
     ctx.lineTo(x + POINT_W / 2, MARGIN + POINT_H);
     ctx.fill();
     
-    // Нижний ряд
     ctx.fillStyle = colorBottom;
     ctx.beginPath();
     ctx.moveTo(x, MARGIN + BOARD_H);
@@ -392,29 +376,25 @@ function drawBoard() {
     ctx.fill();
   }
   
-  // Рисуем шашки
   for (let i = 0; i < 24; i++) {
     const p = board[i];
     if (p.count === 0) continue;
     
     for (let j = 0; j < p.count; j++) {
       let x, y;
-      const maxPerRow = 5; // Сколько шашек влезает в один столбик
+      const maxPerRow = 5; 
       const stackIdx = j % maxPerRow;
       const colIdx = Math.floor(j / maxPerRow);
       
       if (i < 12) {
-        // Верхняя часть
         x = MARGIN + i * POINT_W + POINT_W / 2 + (colIdx * 6);
         y = MARGIN + 20 + stackIdx * 22;
       } else {
-        // Нижняя часть
         const col = 11 - (i - 12);
         x = MARGIN + col * POINT_W + POINT_W / 2 + (colIdx * 6);
         y = MARGIN + BOARD_H - 20 - stackIdx * 22;
       }
       
-      // Сама шашка
       ctx.beginPath();
       ctx.arc(x, y, 12, 0, Math.PI * 2);
       ctx.fillStyle = p.player === 1 ? '#5be3ff' : '#ff5b7f';
@@ -423,7 +403,6 @@ function drawBoard() {
       ctx.lineWidth = 2;
       ctx.stroke();
       
-      // Подсветка выбранной шашки
       if (selectedPoint === i) {
         ctx.beginPath();
         ctx.arc(x, y, 15, 0, Math.PI * 2);
@@ -434,7 +413,6 @@ function drawBoard() {
     }
   }
   
-  // Подсветка доступных ходов
   availableMoves.forEach(m => {
     if (m.from === selectedPoint) {
       let x, y;
@@ -454,7 +432,6 @@ function drawBoard() {
     }
   });
   
-  // Выбитые шашки (сверху и снизу бара)
   for (let i = 0; i < bar[2]; i++) {
     ctx.beginPath();
     ctx.arc(W / 2, MARGIN + 30 + i * 25, 12, 0, Math.PI * 2);
@@ -475,7 +452,6 @@ function drawBoard() {
   }
 }
 
-// Запуск
 initGame();
 </script>
 <script src="back.js"></script>
