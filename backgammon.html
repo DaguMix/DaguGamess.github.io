@@ -78,7 +78,6 @@ canvas{background:#1a1a2e;border-radius:16px;box-shadow:0 0 40px rgba(160,107,25
 const cv = document.getElementById('cv');
 const ctx = cv.getContext('2d');
 
-// Логические размеры доски
 const W = 800;
 const H = 600;
 const MARGIN = 30;
@@ -87,7 +86,6 @@ const BOARD_H = H - MARGIN * 2;
 const POINT_W = BOARD_W / 12;
 const POINT_H = BOARD_H * 0.45;
 
-// Состояние игры
 let board = []; 
 let bar = { 1: 0, 2: 0 }; 
 let turn = 1; 
@@ -182,9 +180,11 @@ function rollDice() {
   }, 50);
 }
 
+// --- ИСПРАВЛЕННЫЙ РАСЧЕТ ХОДОВ (С УЧЕТОМ СУММЫ) ---
 function calculateMoves() {
   availableMoves = [];
   
+  // Если есть выбитые
   if (turn === 1 && bar[1] > 0) {
     for (let d of dice) {
       let target = 24 - d;
@@ -192,14 +192,24 @@ function calculateMoves() {
         availableMoves.push({ from: -1, to: target, die: d });
       }
     }
+    // Ввод выбитых на сумму (если кубики разные)
+    if (dice.length === 2 && dice[0] !== dice[1]) {
+      let sum = dice[0] + dice[1];
+      let target = 24 - sum;
+      if (board[target].player === 1 || board[target].player === 0) {
+        availableMoves.push({ from: -1, to: target, die: sum, isSum: true });
+      }
+    }
     return;
   }
   
+  // Обычные ходы
   for (let i = 0; i < 24; i++) {
     if (board[i].player === turn && board[i].count > 0) {
+      
+      // 1. Ходы на каждый кубик по отдельности
       for (let d of dice) {
         let to = turn === 1 ? i - d : i + d;
-        
         if (to >= 0 && to < 24) {
           if (board[to].player === turn || board[to].player === 0) {
             if (board[to].player !== (turn === 1 ? 2 : 1) || board[to].count < 2) {
@@ -208,11 +218,23 @@ function calculateMoves() {
           }
         }
       }
+      
+      // 2. Ход на сумму (если выпало 2 разных кубика)
+      if (dice.length === 2 && dice[0] !== dice[1]) {
+        let sum = dice[0] + dice[1];
+        let to = turn === 1 ? i - sum : i + sum;
+        if (to >= 0 && to < 24) {
+          if (board[to].player === turn || board[to].player === 0) {
+            if (board[to].player !== (turn === 1 ? 2 : 1) || board[to].count < 2) {
+              availableMoves.push({ from: i, to: to, die: sum, isSum: true });
+            }
+          }
+        }
+      }
     }
   }
 }
 
-// --- ИСПРАВЛЕННАЯ ОБРАБОТКА КЛИКОВ ---
 cv.addEventListener('pointerdown', (e) => {
   if (turn !== 1 || isRolling || dice.length === 0) return;
   
@@ -223,8 +245,8 @@ cv.addEventListener('pointerdown', (e) => {
   const clickedPoint = getPointFromCoords(x, y);
   if (clickedPoint === -1) return;
   
-  // 1. Сначала проверяем: если у нас выбрана шашка и мы кликнули туда, куда можно сходить
   if (selectedPoint !== -1) {
+    // Ищем ход, который подходит по цели
     const move = availableMoves.find(m => m.from === selectedPoint && m.to === clickedPoint);
     if (move) {
       executeMove(move);
@@ -232,9 +254,7 @@ cv.addEventListener('pointerdown', (e) => {
     }
   }
   
-  // 2. Если это не ход, проверяем, кликнули ли мы по своей шашке, чтобы её выбрать
   if (board[clickedPoint].player === 1 && board[clickedPoint].count > 0) {
-    // Проверяем, есть ли вообще ходы с этой шашки
     const hasMoves = availableMoves.some(m => m.from === clickedPoint);
     if (hasMoves) {
       selectedPoint = clickedPoint;
@@ -243,7 +263,6 @@ cv.addEventListener('pointerdown', (e) => {
     }
   }
   
-  // 3. Если кликнули мимо - снимаем выделение
   selectedPoint = -1;
   drawBoard();
 });
@@ -259,8 +278,13 @@ function getPointFromCoords(x, y) {
 }
 
 function executeMove(move) {
-  const dieIdx = dice.indexOf(move.die);
-  if (dieIdx > -1) dice.splice(dieIdx, 1);
+  // Если ход на сумму, тратим оба кубика
+  if (move.isSum) {
+    dice = [];
+  } else {
+    const dieIdx = dice.indexOf(move.die);
+    if (dieIdx > -1) dice.splice(dieIdx, 1);
+  }
   
   if (move.from === -1) {
     bar[1]--;
@@ -310,9 +334,15 @@ function makeAiMove() {
     return;
   }
   
+  // Бот тоже может использовать сумму
   const move = availableMoves[Math.floor(Math.random() * availableMoves.length)];
-  const dieIdx = dice.indexOf(move.die);
-  if (dieIdx > -1) dice.splice(dieIdx, 1);
+  
+  if (move.isSum) {
+    dice = [];
+  } else {
+    const dieIdx = dice.indexOf(move.die);
+    if (dieIdx > -1) dice.splice(dieIdx, 1);
+  }
   
   if (move.from === -1) {
     bar[2]--;
